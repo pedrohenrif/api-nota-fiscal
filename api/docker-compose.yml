@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: tasy
+      POSTGRES_PASSWORD: tasy
+      POSTGRES_DB: tasy_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  extractor-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      - POSTGRES_URL=postgresql://tasy:tasy@db:5432/tasy_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_QUEUE_RAW_NF=nf.raw
+    ports:
+      - "8001:8001"
+    command: uvicorn services.extractor.main:app --host 0.0.0.0 --port 8001
+    volumes:
+      - ./:/app
+
+  processor-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - db
+      - rabbitmq
+    environment:
+      - POSTGRES_URL=postgresql://tasy:tasy@db:5432/tasy_db
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - RABBITMQ_QUEUE_RAW_NF=nf.raw
+      - RABBITMQ_QUEUE_DEAD=nf.dead
+      - PR_ENV=homolog
+      - PR_BASE_URL_HOMOLOG=http://prsistemas.ddns.net:6728/PREstAPI
+      - PR_HOMOLOG_TOKEN=42F6A807-AB4E-4C86-AF66-BDB5BDA045F0
+      - PR_BASE_URL_PRODUCTION=http://131.72.96.43:4780/PREstAPI
+      - PR_CASTELO_TOKEN=9EEAD5CE-639D-43BF-83AB-48116F51A41B
+      - PR_HRAS_TOKEN=8910D4E2-731E-45CF-BE43-F9D47209487E
+      - PR_HRT_TOKEN=4936C942-ACAF-478A-9ADB-86BE99FE4576
+      - PR_PONTA_PORA_TOKEN=AD594FE2-5A81-4444-A8F3-D3BD8BBD6529
+    ports:
+      - "8002:8002"
+    command: uvicorn services.processor.main:app --host 0.0.0.0 --port 8002
+    volumes:
+      - ./:/app
+
+  web-api-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      - db
+      - extractor-service
+    environment:
+      - POSTGRES_URL=postgresql://tasy:tasy@db:5432/tasy_db
+      - EXTRACTOR_URL=http://extractor-service:8001
+      - JWT_SECRET=dev-secret-change-me
+      - BOOTSTRAP_ADMIN_USERNAME=admin
+      - BOOTSTRAP_ADMIN_PASSWORD=admin123
+      - CORS_ORIGINS=http://localhost:5173
+    ports:
+      - "8003:8003"
+    command: uvicorn services.web_api.main:app --host 0.0.0.0 --port 8003
+    volumes:
+      - ./:/app
+
+volumes:
+  pgdata:

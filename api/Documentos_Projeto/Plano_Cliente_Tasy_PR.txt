@@ -1,0 +1,123 @@
+Olá!
+
+Conforme alinhado nas reuniões técnicas, segue um resumo geral da estratégia que será utilizada para o desenvolvimento do projeto de integração entre o sistema Tasy e o sistema PR.
+
+-----------------------------------------
+OBJETIVO DO PROJETO
+-----------------------------------------
+
+O objetivo principal é automatizar o envio de notas fiscais entre os sistemas, criando uma camada intermediária (middleware) responsável por:
+
+- Extrair informações do sistema Tasy
+- Estruturar os dados
+- Enviar as informações ao sistema PR
+- Monitorar status de envio
+- Permitir reenvios e acompanhamento operacional
+
+A proposta foi pensada para trazer maior estabilidade, organização e escalabilidade ao processo.
+
+-----------------------------------------
+ESTRATÉGIA DEFINIDA
+-----------------------------------------
+
+A arquitetura será centralizada em uma única API principal, responsável por controlar todo o fluxo operacional.
+
+Essa abordagem facilita:
+
+- manutenção futura
+- monitoramento
+- identificação de erros
+- expansão do sistema
+
+Além disso, o sistema será preparado para trabalhar com múltiplos estabelecimentos simultaneamente.
+
+-----------------------------------------
+FUNCIONAMENTO GERAL
+-----------------------------------------
+
+O fluxo previsto será:
+
+1. O sistema consulta periodicamente o Tasy
+2. As notas pendentes são identificadas
+3. Os dados são estruturados e padronizados
+4. O middleware realiza o envio para o sistema PR
+5. O sistema registra o retorno da operação
+6. Em caso de falha, ocorre nova tentativa automática
+
+Também será possível realizar disparos manuais futuramente através de um painel administrativo.
+
+-----------------------------------------
+SEGURANÇA E DADOS
+-----------------------------------------
+
+Um ponto importante definido é que o middleware NÃO armazenará permanentemente os dados fiscais completos.
+
+Serão mantidos apenas registros operacionais necessários para:
+
+- auditoria
+- rastreamento
+- logs
+- monitoramento técnico
+
+Isso reduz complexidade e aumenta a segurança operacional.
+
+-----------------------------------------
+TECNOLOGIAS UTILIZADAS
+-----------------------------------------
+
+O desenvolvimento será realizado utilizando tecnologias modernas e escaláveis, incluindo:
+
+- Python
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Docker
+- Poetry
+
+A estrutura também será preparada para futuras melhorias como filas assíncronas e monitoramento avançado.
+
+-----------------------------------------
+FASES DO PROJETO
+-----------------------------------------
+
+Fase 1:
+- Estruturação da API
+- Extração das notas
+- Serviço de envio
+- Logs básicos
+- Execução automática
+
+Fase 2:
+- Painel administrativo
+- Dashboard operacional
+- Reenvio manual
+- Monitoramento de falhas
+
+Fase 3:
+- Melhorias de performance
+- Processamento em tempo real
+- Filas resilientes
+- Observabilidade avançada
+
+-----------------------------------------
+DIFERENCIAIS DO PROJETO
+-----------------------------------------
+
+- Arquitetura preparada para crescimento
+- Estrutura modular
+- Facilidade de manutenção
+- Segurança operacional
+- Possibilidade de novas integrações futuras
+- Monitoramento centralizado
+
+-----------------------------------------
+PRÓXIMOS PASSOS
+-----------------------------------------
+
+- Criação do repositório do projeto
+- Estruturação inicial da aplicação
+- Definição técnica dos endpoints
+- Desenvolvimento do MVP
+- Início das integrações
+
+Seguimos evoluindo a documentação técnica e a organização da solução conforme os alinhamentos avançam.
