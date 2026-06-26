@@ -189,19 +189,32 @@ docker compose up -d web-api-service
 
 ---
 
-## 5. Oracle Client (se necessário)
+## 5. Oracle Instant Client (obrigatório para Tasy homolog)
 
-Se a conexão com o Tasy exigir Oracle Instant Client na VM:
+O banco Tasy homolog exige **criptografia nativa Oracle**, suportada apenas no **modo thick** do `python-oracledb`. A imagem Docker ja inclui o Instant Client; basta **reconstruir** apos atualizar o codigo:
 
 ```bash
-sudo apt install -y libaio1
-# Instalar Oracle Instant Client conforme documentação da instituição
+cd /caminho/para/projeto-nota-fiscal/api
+docker compose build extractor-service
+docker compose up -d extractor-service
+```
+
+Teste a conexao:
+
+```bash
+docker compose exec extractor-service python -c "
+from services.extractor.oracle_client import build_oracle_client
+c = build_oracle_client()
+print(c.fetch_all('SELECT 1 AS ok FROM dual', {}))
+"
 ```
 
 Confirme no `.env`:
 
 - `USE_MOCK_ORACLE=false`
-- `ORACLE_DSN` com usuário, senha, host e service name corretos
+- `ORACLE_DSN` com usuario, senha, host, porta e `service_name` corretos
+
+Se o build falhar ao baixar o Instant Client (rede/firewall), baixe manualmente o pacote **basiclite** 21.x da Oracle, extraia em `/opt/oracle/instantclient_21_15` na imagem ou ajuste `ORACLE_CLIENT_LIB_DIR`.
 
 ---
 

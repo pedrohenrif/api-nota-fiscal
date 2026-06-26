@@ -4,6 +4,7 @@ from typing import Any
 
 from services.extractor.config import ORACLE_DSN
 from services.extractor.oracle_dsn import parse_oracle_dsn
+from services.extractor.oracle_init import ensure_oracle_client
 
 
 class OracleClient:
@@ -17,6 +18,8 @@ class OracleClient:
             raise RuntimeError(
                 "Dependencia oracledb nao instalada. Adicione 'oracledb' no ambiente."
             ) from exc
+
+        ensure_oracle_client()
 
         if self._config["mode"] == "connect_string":
             connection = oracledb.connect(dsn=self._config["connect_string"])
