@@ -59,13 +59,18 @@ PR_ENV=homolog
 
 **Formato do `ORACLE_DSN`:** aceita URL estilo SQLAlchemy (como acima) ou string nativa Oracle. O ping no IP do banco **nao garante** conexao — o extractor usa porta **10521** e `service_name` da URL.
 
-O Tasy homolog exige **modo thick** (Oracle Instant Client na imagem Docker). Apos deploy, reconstrua o extractor:
+O Tasy homolog exige **modo thick**. O Instant Client fica na VM (ex.: `/opt/oracle/instantclient_21_19`) e e montado no container via `docker-compose.yml`. No `api/.env`:
 
-```bash
-docker compose build extractor-service && docker compose up -d extractor-service
+```env
+ORACLE_CLIENT_LIB_DIR=/opt/oracle/instantclient_21_19
 ```
 
-Teste a conexao na VM (dentro do container):
+```bash
+docker compose up -d extractor-service
+docker compose exec extractor-service ls -la /opt/oracle/instantclient_21_19
+```
+
+Teste a conexao:
 
 ```bash
 docker compose exec extractor-service python -c "
@@ -75,7 +80,7 @@ print(c.fetch_all('SELECT 1 AS ok FROM dual', {}))
 "
 ```
 
-Esperado: `[{'OK': 1}]`. Erro `DPY-3001` = falta Instant Client ou imagem nao reconstruida.
+Esperado: `[{'OK': 1}]`.
 
 | Variavel | Valor manual | Efeito |
 |----------|--------------|--------|
@@ -386,7 +391,7 @@ Erros do PR aparecem na coluna **Erro** (HTTP 4xx/5xx ou mensagem de negocio no 
 | Nota nao elegivel | Operacao diferente de 1/39 | Consultar no modal antes de emitir |
 | Scheduler rodando sozinho | `EXTRACTION_SCHEDULER_ENABLED=true` | Colocar `false` e reiniciar extractor |
 | Mock em vez de Oracle | `USE_MOCK_ORACLE=true` | Colocar `false` na VM |
-| `DPY-3001` / thick mode | Instant Client ausente | `docker compose build extractor-service && docker compose up -d extractor-service` |
+| `DPY-3001` / thick mode | Instant Client nao montado no container | Montar `/opt/oracle/instantclient_21_19` no compose; `docker compose up -d extractor-service` |
 
 ---
 

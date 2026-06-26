@@ -7,6 +7,22 @@ _lock = Lock()
 _initialized = False
 
 
+def _discover_instant_client() -> str | None:
+    base = "/opt/oracle"
+    if not os.path.isdir(base):
+        return None
+
+    candidates = sorted(
+        (
+            os.path.join(base, name)
+            for name in os.listdir(base)
+            if name.startswith("instantclient_") and os.path.isdir(os.path.join(base, name))
+        ),
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
 def ensure_oracle_client() -> None:
     global _initialized
     if _initialized:
@@ -18,20 +34,13 @@ def ensure_oracle_client() -> None:
 
         import oracledb
 
-        lib_dir = os.getenv("ORACLE_CLIENT_LIB_DIR", "").strip()
-        if not lib_dir:
-            for candidate in (
-                "/opt/oracle/instantclient_21_15",
-                "/opt/oracle/instantclient_19_23",
-            ):
-                if os.path.isdir(candidate):
-                    lib_dir = candidate
-                    break
+        lib_dir = os.getenv("ORACLE_CLIENT_LIB_DIR", "").strip() or _discover_instant_client() or ""
 
-        if not lib_dir:
+        if not lib_dir or not os.path.isdir(lib_dir):
             raise RuntimeError(
-                "Oracle Instant Client nao encontrado. Reconstrua a imagem Docker "
-                "(docker compose build extractor-service) ou defina ORACLE_CLIENT_LIB_DIR."
+                "Oracle Instant Client nao encontrado no container. "
+                "Monte o diretorio da VM em /opt/oracle/... no docker-compose "
+                "e defina ORACLE_CLIENT_LIB_DIR."
             )
 
         oracledb.init_oracle_client(lib_dir=lib_dir)

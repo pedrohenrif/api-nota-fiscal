@@ -45,12 +45,14 @@ services:
       # Dentro do Docker, hosts internos substituem localhost do .env
       POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      ORACLE_CLIENT_LIB_DIR: /opt/oracle/instantclient_21_15
+      ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
+      LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
     ports:
       - "8001:8001"
     command: uvicorn services.extractor.main:app --host 0.0.0.0 --port 8001
     volumes:
       - ./:/app
+      - ${ORACLE_HOST_CLIENT_DIR:-/opt/oracle/instantclient_21_19}:${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}:ro
 
   processor-service:
     build:
