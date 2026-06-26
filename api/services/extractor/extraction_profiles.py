@@ -14,7 +14,7 @@ class ExtractionProfile:
 PROFILES = {
     "Castelo": ExtractionProfile(
         estabelecimento_nome="Castelo",
-        cd_estabelecimento=9,
+        cd_estabelecimento=8,
         dt_atualizacao_estoque_min="2025-09-21",
         dt_emissao_min="2024-05-14",
         cd_operacao_nf_in=(1, 39),
@@ -28,9 +28,10 @@ PROFILES = {
         cd_operacao_nf_in=(1, 39),
         cd_operacao_nf_item_not_in=(33,),
     ),
+    # HRT — Itaituba
     "HRT": ExtractionProfile(
         estabelecimento_nome="HRT",
-        cd_estabelecimento=9,
+        cd_estabelecimento=7,
         dt_atualizacao_estoque_min="2025-09-21",
         dt_emissao_min="2024-05-14",
         cd_operacao_nf_in=(1, 39),
@@ -38,7 +39,7 @@ PROFILES = {
     ),
     "Ponta Pora": ExtractionProfile(
         estabelecimento_nome="Ponta Pora",
-        cd_estabelecimento=9,
+        cd_estabelecimento=16,
         dt_atualizacao_estoque_min="2025-09-21",
         dt_emissao_min="2024-05-14",
         cd_operacao_nf_in=(1, 39),

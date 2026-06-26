@@ -1,6 +1,9 @@
-const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-  "http://localhost:8003";
+const API_BASE_URL = (() => {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  const value = fromEnv?.trim();
+  if (value) return value.replace(/\/$/, "");
+  return "http://localhost:8003";
+})();
 
 const TOKEN_KEY = "isms_nf_token";
 

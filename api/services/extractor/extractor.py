@@ -251,6 +251,8 @@ def extract_single_note(
 
 class MockOracleClient:
     def fetch_all(self, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        cd_estab = params.get("cd_estabelecimento", 8)
+
         if "nf.nr_sequencia = :nr_sequencia" in sql and "CD_OPERACAO_NF" in sql:
             nr_seq = params.get("nr_sequencia")
             if str(nr_seq) == "999002":
@@ -270,7 +272,7 @@ class MockOracleClient:
                         "VALOR_TOTAL_NOTA": 100,
                         "VENCIMENTO": datetime.utcnow(),
                         "CD_OPERACAO_NF": 33,
-                        "CD_ESTABELECIMENTO": 9,
+                        "CD_ESTABELECIMENTO": cd_estab,
                         "IE_SITUACAO": 1,
                         "DT_INTEGRACAO": None,
                         "IE_TIPO_NOTA": "EN",
@@ -294,7 +296,7 @@ class MockOracleClient:
                         "VALOR_TOTAL_NOTA": 400,
                         "VENCIMENTO": datetime.utcnow(),
                         "CD_OPERACAO_NF": 1,
-                        "CD_ESTABELECIMENTO": 9,
+                        "CD_ESTABELECIMENTO": cd_estab,
                         "IE_SITUACAO": 1,
                         "DT_INTEGRACAO": None,
                         "IE_TIPO_NOTA": "EN",
