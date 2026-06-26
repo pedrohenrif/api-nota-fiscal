@@ -13,7 +13,7 @@ from services.web_api.config import (
     EXTRACTOR_URL,
 )
 from services.web_api.db import Base, SessionLocal, engine, get_db
-from services.web_api.deps import get_current_user, require_admin
+from services.web_api.http_errors import raise_for_extractor_response
 from services.web_api.models import Usuario
 from services.web_api.schemas import (
     EmitirNotaEspecificaRequest,
@@ -160,16 +160,18 @@ def emitir_nota(
 ) -> dict:
     estabelecimento = _resolve_estabelecimento(current_user, payload.estabelecimento)
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=60.0) as client:
             response = client.post(
                 f"{EXTRACTOR_URL}/run", params={"estabelecimento": estabelecimento}
             )
-            response.raise_for_status()
+            raise_for_extractor_response(response)
             result = response.json()
-    except httpx.HTTPError as exc:
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Falha ao acionar extracao: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de extracao indisponivel. Tente novamente em instantes.",
         )
     return {"estabelecimento": estabelecimento, "resultado": result}
 
@@ -182,17 +184,19 @@ def consultar_nota(
 ) -> dict:
     target = _resolve_estabelecimento(current_user, estabelecimento)
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=60.0) as client:
             response = client.get(
                 f"{EXTRACTOR_URL}/notas/consultar",
                 params={"estabelecimento": target, "nr_sequencia": nr_sequencia},
             )
-            response.raise_for_status()
+            raise_for_extractor_response(response)
             return response.json()
-    except httpx.HTTPError as exc:
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Falha ao consultar nota: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de extracao indisponivel. Tente novamente em instantes.",
         )
 
 
@@ -203,7 +207,7 @@ def emitir_nota_especifica(
 ) -> dict:
     target = _resolve_estabelecimento(current_user, payload.estabelecimento)
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=60.0) as client:
             response = client.post(
                 f"{EXTRACTOR_URL}/notas/emitir-especifica",
                 params={
@@ -211,17 +215,14 @@ def emitir_nota_especifica(
                     "nr_sequencia": payload.nr_sequencia.strip(),
                 },
             )
-            if response.status_code == 422:
-                detail = response.json().get("detail", "Nota nao elegivel")
-                raise HTTPException(status_code=422, detail=detail)
-            response.raise_for_status()
+            raise_for_extractor_response(response)
             result = response.json()
     except HTTPException:
         raise
-    except httpx.HTTPError as exc:
+    except httpx.HTTPError:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Falha ao emitir nota especifica: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de extracao indisponivel. Tente novamente em instantes.",
         )
     return {"estabelecimento": target, "resultado": result}
 
@@ -266,22 +267,19 @@ def reemitir_nota(
 
     estabelecimento = nota["estabelecimento"]
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=60.0) as client:
             response = client.post(
                 f"{EXTRACTOR_URL}/notas/emitir-especifica",
                 params={"estabelecimento": estabelecimento, "nr_sequencia": nr_sequencia},
             )
-            if response.status_code == 422:
-                detail = response.json().get("detail", "Nota nao elegivel")
-                raise HTTPException(status_code=422, detail=detail)
-            response.raise_for_status()
+            raise_for_extractor_response(response)
             result = response.json()
     except HTTPException:
         raise
-    except httpx.HTTPError as exc:
+    except httpx.HTTPError:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Falha ao reemitir nota: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de extracao indisponivel. Tente novamente em instantes.",
         )
 
     return {

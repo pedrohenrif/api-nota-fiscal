@@ -53,8 +53,20 @@ Complementa o guia de instalação: [INSTALACAO_VM.md](./INSTALACAO_VM.md).
 EXTRACTION_SCHEDULER_ENABLED=false
 EXTRACTION_RUN_ON_STARTUP=false
 USE_MOCK_ORACLE=false          # VM homolog: Oracle real
-ORACLE_DSN=oracle+cx_oracle://usuario:senha@host:1521/?service_name=TASY
+ORACLE_DSN=oracle+cx_oracle://usuario:senha@host:10521/?service_name=nome_do_service
 PR_ENV=homolog
+```
+
+**Formato do `ORACLE_DSN`:** aceita URL estilo SQLAlchemy (como acima) ou string nativa Oracle. O ping no IP do banco **nao garante** conexao — o extractor usa porta **10521** e `service_name` da URL.
+
+Para testar conexao na VM (dentro do container):
+
+```bash
+docker compose exec extractor-service python -c "
+from services.extractor.oracle_client import build_oracle_client
+c = build_oracle_client()
+print(c.fetch_all('SELECT 1 AS ok FROM dual', {}))
+"
 ```
 
 | Variavel | Valor manual | Efeito |

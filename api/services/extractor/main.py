@@ -7,6 +7,7 @@ from services.extractor.config import (
     POLL_INTERVAL_MINUTES,
     USE_MOCK_ORACLE,
 )
+from services.extractor.errors import friendly_oracle_error
 from services.extractor.extractor import (
     MockOracleClient,
     consult_note_by_nr_sequencia,
@@ -100,11 +101,14 @@ def consultar_nota(estabelecimento: str, nr_sequencia: str) -> dict:
     if estabelecimento not in ESTABELECIMENTOS:
         return {"encontrada": False, "valido": False, "mensagem": "Estabelecimento invalido."}
     oracle_client = MockOracleClient() if USE_MOCK_ORACLE else None
-    return consult_note_by_nr_sequencia(
-        estabelecimento=estabelecimento,
-        nr_sequencia=nr_sequencia,
-        db_client=oracle_client,
-    )
+    try:
+        return consult_note_by_nr_sequencia(
+            estabelecimento=estabelecimento,
+            nr_sequencia=nr_sequencia,
+            db_client=oracle_client,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
 
 
 @app.post("/notas/emitir-especifica")
@@ -120,6 +124,8 @@ def emitir_nota_especifica(estabelecimento: str, nr_sequencia: str) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
     publish_raw_note(note.model_dump())
     return {
         "estabelecimento": estabelecimento,
