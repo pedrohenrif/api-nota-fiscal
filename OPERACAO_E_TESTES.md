@@ -392,6 +392,7 @@ Erros do PR aparecem na coluna **Erro** (HTTP 4xx/5xx ou mensagem de negocio no 
 | Scheduler rodando sozinho | `EXTRACTION_SCHEDULER_ENABLED=true` | Colocar `false` e reiniciar extractor |
 | Mock em vez de Oracle | `USE_MOCK_ORACLE=true` | Colocar `false` na VM |
 | `DPY-3001` / thick mode | Instant Client nao montado no container | Montar `/opt/oracle/instantclient_21_19` no compose; `docker compose up -d extractor-service` |
+| `DPI-1047` / `libaio.so.1` | Falta libaio no container | `docker compose build extractor-service --no-cache && docker compose up -d --force-recreate extractor-service` |
 
 ---
 

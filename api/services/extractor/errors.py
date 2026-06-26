@@ -16,6 +16,12 @@ def friendly_oracle_error(exc: Exception) -> str:
             "Execute: docker compose build extractor-service && docker compose up -d extractor-service"
         )
 
+    if "dpi-1047" in message or "libaio.so.1" in message:
+        return (
+            "Dependencia libaio ausente no container. "
+            "Reconstrua: docker compose build extractor-service --no-cache"
+        )
+
     if "dpy-6001" in message or "cannot connect" in message or "connection refused" in message:
         return (
             "Nao foi possivel conectar ao banco Tasy. "
