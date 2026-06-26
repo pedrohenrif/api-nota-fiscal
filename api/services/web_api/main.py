@@ -13,6 +13,7 @@ from services.web_api.config import (
     EXTRACTOR_URL,
 )
 from services.web_api.db import Base, SessionLocal, engine, get_db
+from services.web_api.deps import get_current_user, require_admin
 from services.web_api.http_errors import raise_for_extractor_response
 from services.web_api.models import Usuario
 from services.web_api.schemas import (
