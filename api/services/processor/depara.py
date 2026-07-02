@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Any
 
 import httpx
@@ -104,19 +105,20 @@ def apply_depara_rules(payload: dict) -> dict:
         raise ValueError("Payload sem estabelecimento para de-para")
 
     pr_config = get_pr_config(estabelecimento)
-    mapped = dict(payload)
+    mapped = deepcopy(payload)
     produtos = mapped.get("produtos") or []
 
     with httpx.Client(timeout=30.0) as client:
         for produto in produtos:
-            cod_material = produto.get("codProd")
-            if not cod_material:
+            cod_tasy = str(produto.get("codProdTasy") or produto.get("codProd") or "").strip()
+            if not cod_tasy:
                 raise ValueError("Item da nota sem codProd (codigo material Tasy)")
+            produto["codProdTasy"] = cod_tasy
             produto["codProd"] = _map_product_code(
                 client=client,
                 base_url=pr_config["base_url"],
                 token=pr_config["token"],
-                cod_material=str(cod_material),
+                cod_material=cod_tasy,
             )
 
     return mapped

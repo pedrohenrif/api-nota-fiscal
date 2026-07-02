@@ -130,6 +130,12 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
             <div className="alert-success depara-resumo-ok">
               De-para validado: todos os {detalhe.depara_resumo.total} item(ns) possuem vínculo no
               PR.
+              {detalhe.erro?.toLowerCase().includes("de-para") ? (
+                <p className="depara-resumo-hint">
+                  O erro exibido acima é da última tentativa de envio (retry antigo). Pode
+                  reemitir a nota.
+                </p>
+              ) : null}
             </div>
           ) : null}
 

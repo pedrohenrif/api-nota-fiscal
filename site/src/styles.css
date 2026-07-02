@@ -963,6 +963,12 @@ select:focus {
   margin-bottom: 16px;
 }
 
+.depara-resumo-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #2d6a4f;
+}
+
 .depara-badge {
   display: inline-flex;
   align-items: center;

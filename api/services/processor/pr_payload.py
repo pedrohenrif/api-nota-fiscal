@@ -66,6 +66,8 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
 
     produtos = normalized.get("produtos") or []
     for produto in produtos:
+        produto.pop("depara", None)
+        produto.pop("codProdTasy", None)
         for lote in produto.get("loteNF") or []:
             if lote.get("validade") is not None:
                 formatted = format_pr_datetime(lote["validade"])
