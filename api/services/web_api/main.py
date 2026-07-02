@@ -381,3 +381,21 @@ def detalhe_nota(
         detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota sem itens para exibir."
 
     return detalhe
+
+
+@app.get("/admin/logs", response_model=list[NotaStatusOut])
+def listar_logs(
+    _: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db),
+    estabelecimento: str | None = None,
+    status: str | None = None,
+    somente_erro: bool = True,
+    limit: int = 100,
+) -> list[dict]:
+    return panel_data.list_logs(
+        db,
+        estabelecimento=estabelecimento,
+        status=status,
+        somente_erro=somente_erro,
+        limit=limit,
+    )

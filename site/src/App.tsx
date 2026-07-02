@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import EmitirNota from "./pages/EmitirNota";
 import Login from "./pages/Login";
+import Logs from "./pages/Logs";
 import Usuarios from "./pages/Usuarios";
 
 export default function App() {
@@ -25,6 +26,16 @@ export default function App() {
           <ProtectedRoute adminOnly>
             <Layout>
               <Usuarios />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/logs"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <Logs />
             </Layout>
           </ProtectedRoute>
         }

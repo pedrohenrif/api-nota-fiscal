@@ -77,6 +77,87 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _map_keys(data: dict[str, Any], key_map: dict[str, str]) -> dict[str, Any]:
+    mapped: dict[str, Any] = {}
+    for key, value in data.items():
+        if key.startswith("_"):
+            continue
+        mapped[key_map.get(key, key)] = value
+    return mapped
+
+
+def to_pr_nota_body(nota: dict[str, Any]) -> dict[str, Any]:
+    """Converte payload interno (camelCase) para contrato PR (PascalCase)."""
+    fornecedor = nota.get("fornecedor") or {}
+    produtos = []
+    for produto in nota.get("produtos") or []:
+        lotes = [
+            _map_keys(
+                lote,
+                {
+                    "lote": "Lote",
+                    "validade": "Validade",
+                    "observacao": "Observacao",
+                    "qtdLote": "QtdLote",
+                },
+            )
+            for lote in produto.get("loteNF") or []
+        ]
+        produtos.append(
+            _map_keys(
+                {
+                    "codProd": produto.get("codProd"),
+                    "cunit": produto.get("cunit"),
+                    "valor": produto.get("valor"),
+                    "qtdEntrada": produto.get("qtdEntrada"),
+                    "loteNF": lotes,
+                },
+                {
+                    "codProd": "CodProd",
+                    "cunit": "CUnit",
+                    "valor": "Valor",
+                    "qtdEntrada": "QtdEntrada",
+                    "loteNF": "LoteNF",
+                },
+            )
+        )
+
+    return _map_keys(
+        {
+            "nf": nota.get("nf"),
+            "serie": nota.get("serie"),
+            "fornecedor": _map_keys(fornecedor, {"cnpj": "Cnpj"}),
+            "dataNF": nota.get("dataNF"),
+            "operador": nota.get("operador") or "INTEGRACAO",
+            "doacao": bool(nota.get("doacao", False)),
+            "vencimento": nota.get("vencimento"),
+            "dataRecebimento": nota.get("dataRecebimento"),
+            "desconto": nota.get("desconto", 0),
+            "ipi": nota.get("ipi", 0),
+            "frete": nota.get("frete", 0),
+            "valorTotal": nota.get("valorTotal"),
+            "qtdItens": nota.get("qtdItens"),
+            "produtos": produtos,
+        },
+        {
+            "nf": "NF",
+            "serie": "Serie",
+            "fornecedor": "Fornecedor",
+            "dataNF": "DataNF",
+            "operador": "Operador",
+            "doacao": "Doacao",
+            "vencimento": "Vencimento",
+            "dataRecebimento": "DataRecebimento",
+            "desconto": "Desconto",
+            "ipi": "Ipi",
+            "frete": "Frete",
+            "valorTotal": "ValorTotal",
+            "qtdItens": "QtdItens",
+            "produtos": "Produtos",
+        },
+    )
+
+
 def build_pr_post_payload(payload: dict[str, Any]) -> dict[str, Any]:
     excluded = {"estabelecimento", "nrSequencia"}
     nota = {
@@ -84,4 +165,5 @@ def build_pr_post_payload(payload: dict[str, Any]) -> dict[str, Any]:
         for key, value in payload.items()
         if key not in excluded and not key.startswith("_")
     }
-    return {"nota": normalize_nota_for_pr(nota)}
+    normalized = normalize_nota_for_pr(nota)
+    return {"nota": to_pr_nota_body(normalized)}

@@ -668,11 +668,115 @@ select:focus {
 
 /* Pages */
 .page h1 {
-  margin: 0 0 24px;
+  margin: 0 0 8px;
   font-size: 28px;
   font-family: var(--font-serif);
   font-weight: 600;
   color: var(--text-dark);
+}
+
+.page-subtitle {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.logs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.logs-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.logs-filters select,
+.logs-filters input[type="number"] {
+  min-width: 140px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.logs-filters .checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.logs-filters .logs-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  cursor: pointer;
+}
+
+.logs-table-wrap {
+  overflow-x: auto;
+}
+
+.table-logs .log-erro-cell {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.log-erro-expand-row td {
+  background: var(--surface-muted, #fafafa);
+  padding-top: 0;
+  padding-bottom: 12px;
+}
+
+.logs-table tbody tr {
+  cursor: pointer;
+}
+
+.logs-table tbody tr:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
+}
+
+.log-erro-cell {
+  max-width: 320px;
+}
+
+.log-erro-pre {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(220, 53, 69, 0.06);
+  border: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--text-dark);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.log-erro-toggle {
+  font-size: 12px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.log-erro-toggle:hover {
+  color: var(--primary-dark, #0056b3);
 }
 
 .card {

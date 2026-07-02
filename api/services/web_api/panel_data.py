@@ -66,6 +66,34 @@ def list_notas(
     return [dict(row) for row in rows]
 
 
+def list_logs(
+    db: Session,
+    estabelecimento: Optional[str] = None,
+    status: Optional[str] = None,
+    somente_erro: bool = True,
+    limit: int = 100,
+) -> list[dict]:
+    conditions: list[str] = []
+    params: dict = {"limit": min(max(limit, 1), 500)}
+
+    if estabelecimento:
+        conditions.append("estabelecimento = :estabelecimento")
+        params["estabelecimento"] = estabelecimento
+    if status:
+        conditions.append("status = :status")
+        params["status"] = status.strip()
+    if somente_erro:
+        conditions.append("erro IS NOT NULL AND TRIM(erro) <> ''")
+
+    sql = _BASE_QUERY
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+    sql += " ORDER BY updated_at DESC NULLS LAST, id DESC LIMIT :limit"
+
+    rows = db.execute(text(sql), params).mappings().all()
+    return [dict(row) for row in rows]
+
+
 def get_nota_by_id(db: Session, nota_id: int) -> dict | None:
     sql = _BASE_QUERY + " WHERE id = :id LIMIT 1"
     row = db.execute(text(sql), {"id": nota_id}).mappings().first()
