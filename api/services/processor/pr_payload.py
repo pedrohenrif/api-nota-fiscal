@@ -14,6 +14,16 @@ _DATE_INPUT_FORMATS = (
 _LOTE_OBSERVACAO_DEFAULT = "-"
 
 
+def _to_int(value: Any) -> int:
+    if value is None:
+        return 0
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    return int(round(float(value)))
+
+
 def _parse_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
@@ -84,12 +94,15 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
     normalized["desconto"] = normalized.get("desconto", 0) or 0
     normalized["ipi"] = normalized.get("ipi", 0) or 0
     normalized["frete"] = normalized.get("frete", 0) or 0
+    normalized["qtdItens"] = _to_int(normalized.get("qtdItens"))
 
     produtos = normalized.get("produtos") or []
     for produto in produtos:
         produto.pop("depara", None)
         produto.pop("codProdTasy", None)
         for lote in produto.get("loteNF") or []:
+            if "qtdLote" in lote:
+                lote["qtdLote"] = _to_int(lote.get("qtdLote"))
             if lote.get("validade") is not None:
                 formatted = format_pr_datetime(lote["validade"])
                 if formatted is not None:

@@ -327,6 +327,7 @@ docker compose exec db psql -U tasy -d tasy_db -c \
 | `De-para vazio` / `codProd=` | material Tasy sem vínculo no PR | Swagger: GET `/Controle/produtos/{codMaterial}` |
 | `PR HTTP 401` / acesso negado | token ou header errado | PR usa header **`AccessToken`**, não Bearer; validar `PR_HOMOLOG_TOKEN` |
 | `The NF/Serie/Operador field is required` | payload com wrapper `{nota:...}` (formato errado) | PR exige JSON **flat** em camelCase; atualizar processor e reemitir |
+| `The nota field is required` + `qtdLote ... Int32` | `qtdLote` enviado como float (`1.0`) | processor converte para inteiro; reemitir |
 | `Observacao field is required` | lote sem observação | processor preenche `"-"` quando vazio |
 | `dataNF ... DateTime` | data em formato errado | datas devem ser ISO `2026-03-05T00:00:00Z` |
 | `PR HTTP 404` | URL base errada | `PR_BASE_URL_*` **sem** `/NF` no final |
