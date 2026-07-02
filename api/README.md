@@ -129,7 +129,7 @@ Parâmetros do PR (processor-service):
 
 Fluxo de integração com o PR:
 1. De-para de produto: `GET /Controle/produtos/{codVinculo}` — envia código material Tasy, recebe código PR.
-2. Gravação da NF: `POST /NF` — payload final com códigos PR nos itens.
+2. Gravação da NF: `POST /NF` — body `{ "nota": { ...campos... } }` com datas em ISO 8601 (`2026-03-05T00:00:00Z`).
 
 Autenticação PR: header `AccessToken` com o valor do token (conforme Swagger do PR), não `Authorization: Bearer`.
 

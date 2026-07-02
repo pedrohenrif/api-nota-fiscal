@@ -1,12 +1,8 @@
 import httpx
 
 from services.processor.config import PR_NF_PATH, build_pr_auth_headers, get_pr_config
+from services.processor.pr_payload import build_pr_post_payload
 from services.processor.pr_response import parse_pr_response
-
-
-def build_pr_post_payload(payload: dict) -> dict:
-    excluded = {"estabelecimento", "nrSequencia"}
-    return {key: value for key, value in payload.items() if key not in excluded and not key.startswith("_")}
 
 
 def send_to_pr(payload: dict) -> dict:
