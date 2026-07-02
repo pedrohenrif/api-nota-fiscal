@@ -11,6 +11,7 @@ _DATE_INPUT_FORMATS = (
     "%Y-%m-%d",
     "%d/%m/%Y",
 )
+_LOTE_OBSERVACAO_DEFAULT = "-"
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -55,14 +56,34 @@ def format_pr_datetime(value: Any) -> str | None:
     return parsed.isoformat().replace("+00:00", "Z")
 
 
+def _format_date_field(nota: dict[str, Any], field: str) -> str | None:
+    if field not in nota or nota[field] is None:
+        return None
+    return format_pr_datetime(nota[field])
+
+
 def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
+    """Normaliza payload interno (camelCase) para o contrato flat do PR."""
     normalized = dict(nota)
 
     for field in _NOTA_DATE_FIELDS:
-        if field in normalized and normalized[field] is not None:
-            formatted = format_pr_datetime(normalized[field])
-            if formatted is not None:
-                normalized[field] = formatted
+        formatted = _format_date_field(normalized, field)
+        if formatted is not None:
+            normalized[field] = formatted
+
+    data_nf = normalized.get("dataNF")
+    if not normalized.get("vencimento") and data_nf:
+        normalized["vencimento"] = data_nf
+    if not normalized.get("dataRecebimento") and data_nf:
+        normalized["dataRecebimento"] = data_nf
+
+    normalized["operador"] = str(normalized.get("operador") or "INTEGRACAO").strip() or "INTEGRACAO"
+    normalized["serie"] = str(normalized.get("serie") or "1").strip() or "1"
+    normalized["nf"] = str(normalized.get("nf") or "").strip()
+    normalized["doacao"] = bool(normalized.get("doacao", False))
+    normalized["desconto"] = normalized.get("desconto", 0) or 0
+    normalized["ipi"] = normalized.get("ipi", 0) or 0
+    normalized["frete"] = normalized.get("frete", 0) or 0
 
     produtos = normalized.get("produtos") or []
     for produto in produtos:
@@ -73,89 +94,11 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
                 formatted = format_pr_datetime(lote["validade"])
                 if formatted is not None:
                     lote["validade"] = formatted
+            observacao = lote.get("observacao")
+            if observacao is None or not str(observacao).strip():
+                lote["observacao"] = _LOTE_OBSERVACAO_DEFAULT
 
     return normalized
-
-
-def _map_keys(data: dict[str, Any], key_map: dict[str, str]) -> dict[str, Any]:
-    mapped: dict[str, Any] = {}
-    for key, value in data.items():
-        if key.startswith("_"):
-            continue
-        mapped[key_map.get(key, key)] = value
-    return mapped
-
-
-def to_pr_nota_body(nota: dict[str, Any]) -> dict[str, Any]:
-    """Converte payload interno (camelCase) para contrato PR (PascalCase)."""
-    fornecedor = nota.get("fornecedor") or {}
-    produtos = []
-    for produto in nota.get("produtos") or []:
-        lotes = [
-            _map_keys(
-                lote,
-                {
-                    "lote": "Lote",
-                    "validade": "Validade",
-                    "observacao": "Observacao",
-                    "qtdLote": "QtdLote",
-                },
-            )
-            for lote in produto.get("loteNF") or []
-        ]
-        produtos.append(
-            _map_keys(
-                {
-                    "codProd": produto.get("codProd"),
-                    "cunit": produto.get("cunit"),
-                    "valor": produto.get("valor"),
-                    "qtdEntrada": produto.get("qtdEntrada"),
-                    "loteNF": lotes,
-                },
-                {
-                    "codProd": "CodProd",
-                    "cunit": "CUnit",
-                    "valor": "Valor",
-                    "qtdEntrada": "QtdEntrada",
-                    "loteNF": "LoteNF",
-                },
-            )
-        )
-
-    return _map_keys(
-        {
-            "nf": nota.get("nf"),
-            "serie": nota.get("serie"),
-            "fornecedor": _map_keys(fornecedor, {"cnpj": "Cnpj"}),
-            "dataNF": nota.get("dataNF"),
-            "operador": nota.get("operador") or "INTEGRACAO",
-            "doacao": bool(nota.get("doacao", False)),
-            "vencimento": nota.get("vencimento"),
-            "dataRecebimento": nota.get("dataRecebimento"),
-            "desconto": nota.get("desconto", 0),
-            "ipi": nota.get("ipi", 0),
-            "frete": nota.get("frete", 0),
-            "valorTotal": nota.get("valorTotal"),
-            "qtdItens": nota.get("qtdItens"),
-            "produtos": produtos,
-        },
-        {
-            "nf": "NF",
-            "serie": "Serie",
-            "fornecedor": "Fornecedor",
-            "dataNF": "DataNF",
-            "operador": "Operador",
-            "doacao": "Doacao",
-            "vencimento": "Vencimento",
-            "dataRecebimento": "DataRecebimento",
-            "desconto": "Desconto",
-            "ipi": "Ipi",
-            "frete": "Frete",
-            "valorTotal": "ValorTotal",
-            "qtdItens": "QtdItens",
-            "produtos": "Produtos",
-        },
-    )
 
 
 def build_pr_post_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -165,5 +108,4 @@ def build_pr_post_payload(payload: dict[str, Any]) -> dict[str, Any]:
         for key, value in payload.items()
         if key not in excluded and not key.startswith("_")
     }
-    normalized = normalize_nota_for_pr(nota)
-    return {"nota": to_pr_nota_body(normalized)}
+    return normalize_nota_for_pr(nota)

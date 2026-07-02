@@ -283,7 +283,7 @@ curl "http://localhost:8001/preview?estabelecimento=Castelo"
 curl -i -X POST "http://prsistemas.ddns.net:6728/PREstAPI/NF" \
   -H "AccessToken: SEU_PR_HOMOLOG_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"nota":{"nf":"1","serie":"1","fornecedor":{"cnpj":"00000000000000"},"dataNF":"2026-03-05T00:00:00Z","operador":"TESTE","valorTotal":0,"qtdItens":0,"produtos":[]}}'
+  -d '{"nf":"1","serie":"1","fornecedor":{"cnpj":"00000000000000"},"dataNF":"2026-03-05T00:00:00Z","operador":"TESTE","vencimento":"2026-03-05T00:00:00Z","dataRecebimento":"2026-03-05T00:00:00Z","valorTotal":0,"qtdItens":0,"produtos":[]}'
 ```
 
 - **401** → token inválido
@@ -326,7 +326,8 @@ docker compose exec db psql -U tasy -d tasy_db -c \
 |----------|-------|------|
 | `De-para vazio` / `codProd=` | material Tasy sem vínculo no PR | Swagger: GET `/Controle/produtos/{codMaterial}` |
 | `PR HTTP 401` / acesso negado | token ou header errado | PR usa header **`AccessToken`**, não Bearer; validar `PR_HOMOLOG_TOKEN` |
-| `The nota field is required` | payload sem wrapper `{nota:...}` | atualizar código (processor); reemitir |
+| `The NF/Serie/Operador field is required` | payload com wrapper `{nota:...}` (formato errado) | PR exige JSON **flat** em camelCase; atualizar processor e reemitir |
+| `Observacao field is required` | lote sem observação | processor preenche `"-"` quando vazio |
 | `dataNF ... DateTime` | data em formato errado | datas devem ser ISO `2026-03-05T00:00:00Z` |
 | `PR HTTP 404` | URL base errada | `PR_BASE_URL_*` **sem** `/NF` no final |
 | de-para / produto | material Tasy sem vínculo no PR | conferir GET `/Controle/produtos/{cod}` no Swagger PR |
