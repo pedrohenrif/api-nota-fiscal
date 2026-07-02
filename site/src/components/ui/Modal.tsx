@@ -7,9 +7,10 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  xl?: boolean;
 }
 
-export default function Modal({ open, title, onClose, children, footer, wide }: ModalProps) {
+export default function Modal({ open, title, onClose, children, footer, wide, xl }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -24,7 +25,7 @@ export default function Modal({ open, title, onClose, children, footer, wide }: 
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
       <div
-        className={`modal-card${wide ? " modal-wide" : ""}`}
+        className={`modal-card${wide ? " modal-wide" : ""}${xl ? " modal-xl" : ""}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

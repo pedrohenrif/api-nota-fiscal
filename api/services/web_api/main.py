@@ -21,6 +21,7 @@ from services.web_api.schemas import (
     EmitirNotaRequest,
     LoginRequest,
     NotaConsultaOut,
+    NotaDetalheOut,
     NotaStatusOut,
     ReemitirNotaRequest,
     Token,
@@ -318,3 +319,53 @@ def listar_notas(
         data_nf_inicio=data_nf_inicio,
         data_nf_fim=data_nf_fim,
     )
+
+
+@app.get("/notas/{nota_id}/detalhe", response_model=NotaDetalheOut)
+def detalhe_nota(
+    nota_id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    nota = panel_data.get_nota_by_id(db, nota_id)
+    if nota is None:
+        raise HTTPException(status_code=404, detail="Nota nao encontrada")
+
+    _assert_nota_access(current_user, nota)
+
+    detalhe = dict(nota)
+    detalhe["cd_operacao_nf"] = None
+    detalhe["operacoes_liberadas"] = []
+    detalhe["consulta_mensagem"] = None
+    detalhe["preview"] = None
+
+    nr_sequencia = (nota.get("nr_sequencia") or "").strip()
+    if not nr_sequencia:
+        detalhe["consulta_mensagem"] = "Nota sem nr_sequencia para consulta no Tasy."
+        return detalhe
+
+    estabelecimento = nota["estabelecimento"]
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            response = client.get(
+                f"{EXTRACTOR_URL}/notas/consultar",
+                params={"estabelecimento": estabelecimento, "nr_sequencia": nr_sequencia},
+            )
+            raise_for_extractor_response(response)
+            consulta = response.json()
+    except HTTPException as exc:
+        detalhe["consulta_mensagem"] = str(exc.detail)
+        return detalhe
+    except httpx.HTTPError:
+        detalhe["consulta_mensagem"] = "Servico de extracao indisponivel."
+        return detalhe
+
+    detalhe["cd_operacao_nf"] = consulta.get("cd_operacao_nf")
+    detalhe["operacoes_liberadas"] = consulta.get("operacoes_liberadas") or []
+    detalhe["preview"] = consulta.get("preview")
+    if not consulta.get("encontrada"):
+        detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota nao encontrada no Tasy."
+    elif not consulta.get("valido") and not detalhe["preview"]:
+        detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota sem itens para exibir."
+
+    return detalhe

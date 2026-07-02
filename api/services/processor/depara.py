@@ -6,11 +6,14 @@ from services.processor.config import PR_PRODUTO_DEPARA_PATH, build_pr_auth_head
 from services.processor.pr_response import parse_pr_response
 
 
-def _extract_pr_product_code(response_data: Any) -> str:
+def _extract_pr_product_code(response_data: Any, cod_material: str) -> str:
     if isinstance(response_data, list):
         if not response_data:
-            raise ValueError("Resposta de de-para vazia")
-        return _extract_pr_product_code(response_data[0])
+            raise ValueError(
+                f"De-para vazio no PR para material Tasy codProd={cod_material}. "
+                "O codigo nao possui vinculo cadastrado no PR homolog."
+            )
+        return _extract_pr_product_code(response_data[0], cod_material)
 
     if isinstance(response_data, dict):
         for key in ("codProd", "codigo", "codigoProduto", "CodProd", "Codigo", "id"):
@@ -19,9 +22,12 @@ def _extract_pr_product_code(response_data: Any) -> str:
                 return str(value).strip()
         for nested_key in ("produto", "data", "result"):
             if nested_key in response_data:
-                return _extract_pr_product_code(response_data[nested_key])
+                return _extract_pr_product_code(response_data[nested_key], cod_material)
 
-    raise ValueError(f"Resposta de de-para sem codigo de produto: {response_data}")
+    raise ValueError(
+        f"De-para sem codigo PR para material Tasy codProd={cod_material}. "
+        f"Resposta PR: {response_data}"
+    )
 
 
 def _map_product_code(
@@ -31,7 +37,7 @@ def _map_product_code(
     url = f"{base_url}{path}"
     headers = build_pr_auth_headers(token)
     response = client.get(url, headers=headers)
-    return _extract_pr_product_code(parse_pr_response(response))
+    return _extract_pr_product_code(parse_pr_response(response), cod_material)
 
 
 def apply_depara_rules(payload: dict) -> dict:

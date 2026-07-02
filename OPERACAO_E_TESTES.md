@@ -398,6 +398,7 @@ Erros do PR aparecem na coluna **Erro** (HTTP 4xx/5xx ou mensagem de negocio no 
 
 ## 12. Documentacao relacionada
 
+- [DEBUG_VM.md](./DEBUG_VM.md) — **debug, logs e reinicio de servicos na VM**
 - [INSTALACAO_VM.md](./INSTALACAO_VM.md) — instalacao inicial na VM
 - [api/README.md](./api/README.md) — arquitetura e endpoints
 - [site/README.md](./site/README.md) — frontend

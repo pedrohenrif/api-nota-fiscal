@@ -7,6 +7,7 @@ interface NotasTableProps {
   carregando?: boolean;
   reemitindoId?: number | null;
   onReemitir?: (nota: NotaStatus) => void;
+  onSelectNota?: (nota: NotaStatus) => void;
 }
 
 export default function NotasTable({
@@ -14,6 +15,7 @@ export default function NotasTable({
   carregando,
   reemitindoId,
   onReemitir,
+  onSelectNota,
 }: NotasTableProps) {
   return (
     <table className="table">
@@ -49,7 +51,12 @@ export default function NotasTable({
             const reemitindo = reemitindoId === nota.id;
 
             return (
-              <tr key={nota.id}>
+              <tr
+                key={nota.id}
+                className={onSelectNota ? "table-row-clickable" : undefined}
+                onClick={() => onSelectNota?.(nota)}
+                title={onSelectNota ? "Clique para ver detalhes" : undefined}
+              >
                 <td>{nota.nf}</td>
                 <td>{nota.nr_sequencia ?? "-"}</td>
                 <td>{nota.fornecedor ?? "-"}</td>
@@ -62,7 +69,7 @@ export default function NotasTable({
                 <td className="erro-cell" title={nota.erro ?? undefined}>
                   {nota.erro ?? "-"}
                 </td>
-                <td className="actions-cell">
+                <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                   {elegivel ? (
                     <button
                       type="button"

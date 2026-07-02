@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import EmitirEspecificaModal from "../components/notas/EmitirEspecificaModal";
+import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import NotasFilters from "../components/notas/NotasFilters";
 import NotasTable from "../components/notas/NotasTable";
 import { useNotas } from "../hooks/useNotas";
@@ -17,6 +18,7 @@ export default function EmitirNota() {
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [emitindo, setEmitindo] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
+  const [notaSelecionada, setNotaSelecionada] = useState<NotaStatus | null>(null);
   const [reemitindoId, setReemitindoId] = useState<number | null>(null);
 
   const {
@@ -132,7 +134,10 @@ export default function EmitirNota() {
         <div className="card-header">
           <div>
             <h2>Notas recentes</h2>
-            <p className="card-subtitle">Histórico de processamento e status de envio ao PR</p>
+            <p className="card-subtitle">
+              Histórico de processamento e status de envio ao PR — clique em uma linha para ver
+              detalhes
+            </p>
           </div>
           <button className="btn-ghost" onClick={() => void carregarNotas()}>
             Atualizar
@@ -152,6 +157,7 @@ export default function EmitirNota() {
           carregando={carregando}
           reemitindoId={reemitindoId}
           onReemitir={(nota) => void handleReemitir(nota)}
+          onSelectNota={setNotaSelecionada}
         />
       </div>
 
@@ -161,6 +167,8 @@ export default function EmitirNota() {
         onClose={() => setModalAberto(false)}
         onSuccess={() => void carregarNotas()}
       />
+
+      <NotaDetalheModal nota={notaSelecionada} onClose={() => setNotaSelecionada(null)} />
     </div>
   );
 }

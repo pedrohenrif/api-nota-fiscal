@@ -281,6 +281,7 @@ O processor usa `PR_ENV=homolog` por padrão. Para produção, altere para `PR_E
 
 ## 10. Documentação complementar
 
+- [DEBUG_VM.md](./DEBUG_VM.md) — debug, logs, erros comuns e reinício de serviços na VM
 - [OPERACAO_E_TESTES.md](./OPERACAO_E_TESTES.md) — operação manual/automática, testes em homolog, comandos do dia a dia
 - [api/README.md](./api/README.md) — visão geral da arquitetura e endpoints
 - [site/README.md](./site/README.md) — frontend e credenciais

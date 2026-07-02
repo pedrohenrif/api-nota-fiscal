@@ -58,6 +58,39 @@ class NotaConsultaOut(BaseModel):
     fornecedor: Optional[str] = None
     data_nf: Optional[datetime] = None
     qtd_itens: Optional[int] = None
+    preview: Optional[dict] = None
+
+
+class LoteNFOut(BaseModel):
+    lote: str
+    validade: Optional[datetime] = None
+    observacao: Optional[str] = None
+    qtdLote: float
+
+
+class ProdutoNFOut(BaseModel):
+    codProd: str
+    cunit: float
+    valor: float
+    qtdEntrada: float
+    loteNF: list[LoteNFOut] = Field(default_factory=list)
+
+
+class NotaPreviewOut(BaseModel):
+    nf: str
+    serie: str
+    fornecedor: dict
+    dataNF: Optional[datetime] = None
+    operador: str = "INTEGRACAO"
+    doacao: bool = False
+    vencimento: Optional[datetime] = None
+    dataRecebimento: Optional[datetime] = None
+    desconto: float = 0.0
+    ipi: float = 0.0
+    frete: float = 0.0
+    valorTotal: float
+    qtdItens: int
+    produtos: list[ProdutoNFOut] = Field(default_factory=list)
 
 
 class NotaStatusOut(BaseModel):
@@ -75,3 +108,10 @@ class NotaStatusOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class NotaDetalheOut(NotaStatusOut):
+    cd_operacao_nf: Optional[int] = None
+    operacoes_liberadas: list[int] = Field(default_factory=list)
+    consulta_mensagem: Optional[str] = None
+    preview: Optional[NotaPreviewOut] = None

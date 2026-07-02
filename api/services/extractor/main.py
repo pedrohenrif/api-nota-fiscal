@@ -84,8 +84,11 @@ def shutdown_scheduler() -> None:
 
 @app.post("/run")
 def run_extraction(estabelecimento: str | None = None) -> dict:
-    with scheduler_lock:
-        return _run_extraction_cycle(estabelecimento=estabelecimento)
+    try:
+        with scheduler_lock:
+            return _run_extraction_cycle(estabelecimento=estabelecimento)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
 
 
 @app.get("/preview")
