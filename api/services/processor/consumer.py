@@ -15,6 +15,7 @@ from services.processor.config import (
 from services.processor.db import SessionLocal
 from services.processor.depara import apply_depara_rules
 from services.processor.dispatcher import send_to_pr
+from services.processor.pr_response import extract_pr_success_info
 from services.processor.migrations import parse_payload_metadata
 from services.processor.repository import upsert_processing_status
 
@@ -80,13 +81,17 @@ def process_payload(payload: dict) -> str:
             return "defer"
 
         mapped_payload = apply_depara_rules(payload)
-        send_to_pr(mapped_payload)
+        pr_result = send_to_pr(mapped_payload)
+        success_info = extract_pr_success_info(pr_result) or {}
         upsert_processing_status(
             db,
             estabelecimento=estabelecimento,
             nf=nf,
             status="sent",
             tentativas=retries + 1,
+            erro=None,
+            pr_id=success_info.get("pr_id"),
+            pr_mensagem=success_info.get("pr_mensagem"),
             **meta,
         )
         return "sent"

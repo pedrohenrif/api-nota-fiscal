@@ -1,5 +1,5 @@
 import { formatData } from "../../lib/format";
-import { podeReemitir } from "../../lib/notas";
+import { formatRetornoPr, podeReemitir } from "../../lib/notas";
 import type { NotaStatus } from "../../types";
 
 interface NotasTableProps {
@@ -28,7 +28,7 @@ export default function NotasTable({
           <th>Estabelecimento</th>
           <th>Status</th>
           <th>Tentativas</th>
-          <th>Erro</th>
+          <th>Retorno PR</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -49,6 +49,7 @@ export default function NotasTable({
           notas.map((nota) => {
             const elegivel = podeReemitir(nota);
             const reemitindo = reemitindoId === nota.id;
+            const retorno = formatRetornoPr(nota);
 
             return (
               <tr
@@ -66,8 +67,17 @@ export default function NotasTable({
                   <span className={`status status-${nota.status}`}>{nota.status}</span>
                 </td>
                 <td>{nota.tentativas}</td>
-                <td className="erro-cell" title={nota.erro ?? undefined}>
-                  {nota.erro ?? "-"}
+                <td
+                  className={
+                    retorno.kind === "success"
+                      ? "pr-success-cell"
+                      : retorno.kind === "error"
+                        ? "erro-cell"
+                        : undefined
+                  }
+                  title={retorno.title}
+                >
+                  {retorno.text}
                 </td>
                 <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                   {elegivel ? (

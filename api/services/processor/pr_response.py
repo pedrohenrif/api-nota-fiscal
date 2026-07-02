@@ -18,6 +18,13 @@ def _join_messages(value: Any) -> str | None:
     return None
 
 
+def _is_pr_success(data: dict[str, Any]) -> bool:
+    for flag in ("sucesso", "success", "ok"):
+        if flag in data and data[flag] is True:
+            return True
+    return False
+
+
 def _extract_business_error(data: Any, *, _seen: frozenset[int] | None = None) -> str | None:
     if isinstance(data, list):
         for item in data:
@@ -35,6 +42,13 @@ def _extract_business_error(data: Any, *, _seen: frozenset[int] | None = None) -
         return None
     seen = seen | {object_id}
 
+    if _is_pr_success(data):
+        return None
+
+    erros_message = _join_messages(data.get("erros"))
+    if erros_message:
+        return erros_message
+
     for key in (
         "erro",
         "error",
@@ -50,10 +64,6 @@ def _extract_business_error(data: Any, *, _seen: frozenset[int] | None = None) -
         if message:
             return message
 
-    erros_message = _join_messages(data.get("erros"))
-    if erros_message:
-        return erros_message
-
     for nested_key in ("data", "result", "retorno", "produto"):
         if nested_key in data:
             message = _extract_business_error(data[nested_key], _seen=seen)
@@ -65,6 +75,21 @@ def _extract_business_error(data: Any, *, _seen: frozenset[int] | None = None) -
             return "Operacao rejeitada pelo PR"
 
     return None
+
+
+def extract_pr_success_info(data: Any) -> dict[str, Any] | None:
+    if not isinstance(data, dict) or not _is_pr_success(data):
+        return None
+
+    pr_id = data.get("id")
+    if pr_id is not None:
+        try:
+            pr_id = int(pr_id)
+        except (TypeError, ValueError):
+            pr_id = None
+
+    mensagem = _join_messages(data.get("mensagem")) or _join_messages(data.get("message"))
+    return {"pr_id": pr_id, "pr_mensagem": mensagem}
 
 
 def format_http_error(response: httpx.Response) -> str:

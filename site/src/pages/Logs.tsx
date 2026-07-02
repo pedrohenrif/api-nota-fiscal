@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import { formatDataHora, buildQuery } from "../lib/format";
+import { formatRetornoPr } from "../lib/notas";
 import type { NotaStatus } from "../types";
 import { NOTA_STATUS_OPTIONS } from "../types";
 
@@ -119,7 +120,7 @@ export default function Logs() {
                 <th>Estab.</th>
                 <th>Status</th>
                 <th>Tent.</th>
-                <th>Erro / detalhe</th>
+                <th>Retorno PR</th>
               </tr>
             </thead>
             <tbody>
@@ -138,6 +139,8 @@ export default function Logs() {
               ) : (
                 logs.map((log) => {
                   const expandido = expandidoId === log.id;
+                  const retorno = formatRetornoPr(log);
+                  const detalhe = retorno.kind === "error" ? log.erro : retorno.text;
                   return (
                     <Fragment key={log.id}>
                       <tr
@@ -154,20 +157,31 @@ export default function Logs() {
                         </td>
                         <td>{log.tentativas}</td>
                         <td
-                          className="log-erro-cell"
+                          className={
+                            retorno.kind === "success"
+                              ? "pr-success-cell log-erro-cell"
+                              : retorno.kind === "error"
+                                ? "log-erro-cell"
+                                : "log-erro-cell"
+                          }
                           onClick={(e) => {
+                            if (retorno.kind !== "error") return;
                             e.stopPropagation();
                             toggleExpandir(log.id);
                           }}
-                          title="Clique para expandir/recolher"
+                          title={
+                            retorno.kind === "error"
+                              ? "Clique para expandir/recolher"
+                              : retorno.title
+                          }
                         >
-                          {log.erro ?? "—"}
+                          {retorno.text}
                         </td>
                       </tr>
-                      {expandido && log.erro ? (
+                      {expandido && detalhe && retorno.kind === "error" ? (
                         <tr className="log-erro-expand-row">
                           <td colSpan={7}>
-                            <pre className="log-erro-pre">{log.erro}</pre>
+                            <pre className="log-erro-pre">{detalhe}</pre>
                           </td>
                         </tr>
                       ) : null}

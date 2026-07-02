@@ -1124,6 +1124,13 @@ select:focus {
   line-height: 1.4;
 }
 
+.pr-success-cell {
+  max-width: 260px;
+  color: var(--success);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .status {
   padding: 4px 11px;
   border-radius: 999px;

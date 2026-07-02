@@ -15,6 +15,8 @@ SELECT
     status,
     tentativas,
     erro,
+    pr_id,
+    pr_mensagem,
     created_at,
     updated_at
 FROM nota_processamento

@@ -18,6 +18,8 @@ export interface NotaStatus {
   status: string;
   tentativas: number;
   erro?: string | null;
+  pr_id?: number | null;
+  pr_mensagem?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }

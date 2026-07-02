@@ -10,6 +10,8 @@ def run_migrations() -> None:
         "ALTER TABLE nota_processamento ADD COLUMN IF NOT EXISTS nr_sequencia VARCHAR(80)",
         "ALTER TABLE nota_processamento ADD COLUMN IF NOT EXISTS fornecedor VARCHAR(20)",
         "ALTER TABLE nota_processamento ADD COLUMN IF NOT EXISTS data_nf TIMESTAMPTZ",
+        "ALTER TABLE nota_processamento ADD COLUMN IF NOT EXISTS pr_id INTEGER",
+        "ALTER TABLE nota_processamento ADD COLUMN IF NOT EXISTS pr_mensagem TEXT",
     ]
     with engine.begin() as conn:
         for stmt in statements:
