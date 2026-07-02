@@ -937,6 +937,66 @@ select:focus {
   font-style: italic;
 }
 
+.detalhe-fonte {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.depara-resumo-alert {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--danger-bg);
+  border: 1px solid #f5c2c2;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.depara-resumo-alert p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #8b3a3a;
+}
+
+.depara-resumo-ok {
+  margin-bottom: 16px;
+}
+
+.depara-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.depara-ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.depara-vazio,
+.depara-erro {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.depara-pendente {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.detalhe-row-erro td {
+  background: rgba(220, 53, 69, 0.06);
+}
+
+.detalhe-row-erro td:first-child strong {
+  color: var(--danger);
+}
+
 .table tbody tr:last-child td {
   border-bottom: none;
 }

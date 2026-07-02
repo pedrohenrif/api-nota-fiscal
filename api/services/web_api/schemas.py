@@ -68,12 +68,20 @@ class LoteNFOut(BaseModel):
     qtdLote: float
 
 
+class DeparaStatusOut(BaseModel):
+    status: Literal["ok", "vazio", "erro"]
+    codProdTasy: str
+    codProdPR: Optional[str] = None
+    mensagem: Optional[str] = None
+
+
 class ProdutoNFOut(BaseModel):
     codProd: str
     cunit: float
     valor: float
     qtdEntrada: float
     loteNF: list[LoteNFOut] = Field(default_factory=list)
+    depara: Optional[DeparaStatusOut] = None
 
 
 class NotaPreviewOut(BaseModel):
@@ -115,3 +123,4 @@ class NotaDetalheOut(NotaStatusOut):
     operacoes_liberadas: list[int] = Field(default_factory=list)
     consulta_mensagem: Optional[str] = None
     preview: Optional[NotaPreviewOut] = None
+    depara_resumo: Optional[dict] = None

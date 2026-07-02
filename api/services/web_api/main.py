@@ -29,6 +29,7 @@ from services.web_api.schemas import (
     UsuarioOut,
 )
 from services.web_api.security import create_access_token, verify_password
+from services.processor.depara import enrich_preview_with_depara
 
 app = FastAPI(title="Web API - Painel NF")
 
@@ -338,6 +339,7 @@ def detalhe_nota(
     detalhe["operacoes_liberadas"] = []
     detalhe["consulta_mensagem"] = None
     detalhe["preview"] = None
+    detalhe["depara_resumo"] = None
 
     nr_sequencia = (nota.get("nr_sequencia") or "").strip()
     if not nr_sequencia:
@@ -363,6 +365,16 @@ def detalhe_nota(
     detalhe["cd_operacao_nf"] = consulta.get("cd_operacao_nf")
     detalhe["operacoes_liberadas"] = consulta.get("operacoes_liberadas") or []
     detalhe["preview"] = consulta.get("preview")
+    if detalhe["preview"]:
+        try:
+            preview, resumo = enrich_preview_with_depara(estabelecimento, detalhe["preview"])
+            detalhe["preview"] = preview
+            detalhe["depara_resumo"] = resumo
+        except Exception as exc:
+            detalhe["depara_resumo"] = None
+            detalhe["consulta_mensagem"] = (
+                detalhe.get("consulta_mensagem") or f"Falha ao validar de-para no PR: {exc}"
+            )
     if not consulta.get("encontrada"):
         detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota nao encontrada no Tasy."
     elif not consulta.get("valido") and not detalhe["preview"]:

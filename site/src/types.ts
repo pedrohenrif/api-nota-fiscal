@@ -52,12 +52,26 @@ export interface LoteNF {
   qtdLote: number;
 }
 
+export interface DeparaStatus {
+  status: "ok" | "vazio" | "erro";
+  codProdTasy: string;
+  codProdPR?: string | null;
+  mensagem?: string | null;
+}
+
+export interface DeparaResumo {
+  total: number;
+  ok: number;
+  falha: number;
+}
+
 export interface ProdutoNF {
   codProd: string;
   cunit: number;
   valor: number;
   qtdEntrada: number;
   loteNF: LoteNF[];
+  depara?: DeparaStatus | null;
 }
 
 export interface NotaPreview {
@@ -82,6 +96,7 @@ export interface NotaDetalhe extends NotaStatus {
   operacoes_liberadas: number[];
   consulta_mensagem?: string | null;
   preview?: NotaPreview | null;
+  depara_resumo?: DeparaResumo | null;
 }
 
 export const NOTA_STATUS_OPTIONS = [

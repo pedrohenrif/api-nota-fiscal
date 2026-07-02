@@ -1,12 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { formatData, formatDataHora, formatMoeda, formatNumero } from "../../lib/format";
-import type { NotaDetalhe, NotaStatus } from "../../types";
+import type { DeparaStatus, NotaDetalhe, NotaStatus, ProdutoNF } from "../../types";
 import Modal from "../ui/Modal";
 
 interface NotaDetalheModalProps {
   nota: NotaStatus | null;
   onClose: () => void;
+}
+
+function DeparaBadge({ depara }: { depara?: DeparaStatus | null }) {
+  if (!depara) {
+    return <span className="depara-badge depara-pendente">—</span>;
+  }
+
+  if (depara.status === "ok") {
+    return (
+      <span className="depara-badge depara-ok" title={`Código PR: ${depara.codProdPR}`}>
+        OK → {depara.codProdPR}
+      </span>
+    );
+  }
+
+  if (depara.status === "vazio") {
+    return (
+      <span className="depara-badge depara-vazio" title={depara.mensagem ?? undefined}>
+        Sem vínculo no PR
+      </span>
+    );
+  }
+
+  return (
+    <span className="depara-badge depara-erro" title={depara.mensagem ?? undefined}>
+      Erro no de-para
+    </span>
+  );
+}
+
+function itemComFalhaDepara(produto: ProdutoNF): boolean {
+  return produto.depara != null && produto.depara.status !== "ok";
 }
 
 export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProps) {
@@ -48,6 +80,11 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
     [preview]
   );
 
+  const itensSemDepara = useMemo(
+    () => (preview?.produtos ?? []).filter(itemComFalhaDepara),
+    [preview]
+  );
+
   return (
     <Modal
       open={nota != null}
@@ -61,7 +98,7 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
       }
     >
       {carregando ? (
-        <p className="detalhe-loading">Carregando detalhes da nota...</p>
+        <p className="detalhe-loading">Carregando detalhes e validando de-para no PR...</p>
       ) : erro ? (
         <div className="alert-error">{erro}</div>
       ) : detalhe ? (
@@ -77,6 +114,24 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
               </span>
             ) : null}
           </div>
+
+          {detalhe.depara_resumo && detalhe.depara_resumo.falha > 0 ? (
+            <div className="depara-resumo-alert">
+              <strong>
+                {detalhe.depara_resumo.falha} de {detalhe.depara_resumo.total} item(ns) sem
+                de-para no PR
+              </strong>
+              <p>
+                Materiais pendentes:{" "}
+                {itensSemDepara.map((item) => item.codProd).join(", ") || "—"}
+              </p>
+            </div>
+          ) : detalhe.depara_resumo && detalhe.depara_resumo.total > 0 ? (
+            <div className="alert-success depara-resumo-ok">
+              De-para validado: todos os {detalhe.depara_resumo.total} item(ns) possuem vínculo no
+              PR.
+            </div>
+          ) : null}
 
           <section className="detalhe-section">
             <h3 className="detalhe-section-title">Identificação</h3>
@@ -96,6 +151,7 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
               <span>Operações liberadas</span>
               <strong>{detalhe.operacoes_liberadas.join(", ") || "-"}</strong>
             </div>
+            <p className="detalhe-fonte">Dados consultados em tempo real no Tasy (Oracle).</p>
           </section>
 
           {preview ? (
@@ -132,7 +188,8 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
                   <table className="table table-nested">
                     <thead>
                       <tr>
-                        <th>Cód. material</th>
+                        <th>Cód. material (Tasy)</th>
+                        <th>De-para PR</th>
                         <th>Qtd entrada</th>
                         <th>Valor unit.</th>
                         <th>Valor item</th>
@@ -142,15 +199,21 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
                     <tbody>
                       {preview.produtos.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="empty">
+                          <td colSpan={6} className="empty">
                             Nenhum item na nota.
                           </td>
                         </tr>
                       ) : (
                         preview.produtos.map((produto, index) => (
-                          <tr key={`${produto.codProd}-${index}`}>
+                          <tr
+                            key={`${produto.codProd}-${index}`}
+                            className={itemComFalhaDepara(produto) ? "detalhe-row-erro" : undefined}
+                          >
                             <td>
                               <strong>{produto.codProd}</strong>
+                            </td>
+                            <td>
+                              <DeparaBadge depara={produto.depara} />
                             </td>
                             <td>{formatNumero(produto.qtdEntrada, 4)}</td>
                             <td>{formatMoeda(produto.cunit)}</td>

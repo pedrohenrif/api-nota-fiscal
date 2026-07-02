@@ -40,6 +40,64 @@ def _map_product_code(
     return _extract_pr_product_code(parse_pr_response(response), cod_material)
 
 
+def check_product_depara(
+    client: httpx.Client,
+    base_url: str,
+    token: str,
+    cod_material: str,
+) -> dict[str, str | None]:
+    cod_material = str(cod_material).strip()
+    if not cod_material:
+        return {
+            "status": "erro",
+            "codProdTasy": "",
+            "codProdPR": None,
+            "mensagem": "Item sem codProd (codigo material Tasy)",
+        }
+
+    try:
+        cod_pr = _map_product_code(client, base_url, token, cod_material)
+        return {
+            "status": "ok",
+            "codProdTasy": cod_material,
+            "codProdPR": cod_pr,
+            "mensagem": None,
+        }
+    except ValueError as exc:
+        message = str(exc)
+        status = "vazio" if "vazio" in message.lower() else "erro"
+        return {
+            "status": status,
+            "codProdTasy": cod_material,
+            "codProdPR": None,
+            "mensagem": message,
+        }
+
+
+def enrich_preview_with_depara(estabelecimento: str, preview: dict) -> tuple[dict, dict]:
+    pr_config = get_pr_config(estabelecimento)
+    produtos = preview.get("produtos") or []
+    ok_count = 0
+    fail_count = 0
+
+    with httpx.Client(timeout=30.0) as client:
+        for produto in produtos:
+            depara = check_product_depara(
+                client=client,
+                base_url=pr_config["base_url"],
+                token=pr_config["token"],
+                cod_material=str(produto.get("codProd") or ""),
+            )
+            produto["depara"] = depara
+            if depara["status"] == "ok":
+                ok_count += 1
+            else:
+                fail_count += 1
+
+    resumo = {"total": len(produtos), "ok": ok_count, "falha": fail_count}
+    return preview, resumo
+
+
 def apply_depara_rules(payload: dict) -> dict:
     estabelecimento = payload.get("estabelecimento")
     if not estabelecimento:
