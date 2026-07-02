@@ -33,6 +33,10 @@ PR_NF_PATH = "/NF"
 PR_PRODUTO_DEPARA_PATH = "/Controle/produtos/{cod_vinculo}"
 
 
+def build_pr_auth_headers(token: str) -> dict[str, str]:
+    return {"AccessToken": token}
+
+
 def get_pr_config(estabelecimento: str) -> dict[str, str]:
     if PR_ENV == "production":
         token = PR_PRODUCTION_TOKENS.get(estabelecimento, "")

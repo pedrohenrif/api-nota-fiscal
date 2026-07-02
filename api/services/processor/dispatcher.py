@@ -1,6 +1,6 @@
 import httpx
 
-from services.processor.config import PR_NF_PATH, get_pr_config
+from services.processor.config import PR_NF_PATH, build_pr_auth_headers, get_pr_config
 from services.processor.pr_response import parse_pr_response
 
 
@@ -16,7 +16,7 @@ def send_to_pr(payload: dict) -> dict:
 
     pr_config = get_pr_config(estabelecimento)
     url = f"{pr_config['base_url']}{PR_NF_PATH}"
-    headers = {"Authorization": f"Bearer {pr_config['token']}"}
+    headers = build_pr_auth_headers(pr_config["token"])
     body = build_pr_post_payload(payload)
 
     with httpx.Client(timeout=30.0) as client:

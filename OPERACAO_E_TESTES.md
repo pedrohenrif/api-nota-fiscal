@@ -387,7 +387,7 @@ Erros do PR aparecem na coluna **Erro** (HTTP 4xx/5xx ou mensagem de negocio no 
 |---------|----------------|------|
 | Site: `ERR_CONNECTION_REFUSED` :8003 | web-api parado | `docker compose ps` → `docker compose up -d web-api-service` |
 | Lista vazia no site | Nenhuma nota emitida ainda | Emitir pelo site; aguardar processor |
-| `retry_pending` / erro PR | PR rejeitou ou rede | Ver coluna Erro; testar na VM (IP fixo) |
+| `PR HTTP 401` / acesso negado | Header ou token incorreto | PR usa header `AccessToken` (nao Bearer); confira `PR_HOMOLOG_TOKEN` |
 | Nota nao elegivel | Operacao diferente de 1/39 | Consultar no modal antes de emitir |
 | Scheduler rodando sozinho | `EXTRACTION_SCHEDULER_ENABLED=true` | Colocar `false` e reiniciar extractor |
 | Mock em vez de Oracle | `USE_MOCK_ORACLE=true` | Colocar `false` na VM |

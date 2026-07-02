@@ -2,7 +2,7 @@ from typing import Any
 
 import httpx
 
-from services.processor.config import PR_PRODUTO_DEPARA_PATH, get_pr_config
+from services.processor.config import PR_PRODUTO_DEPARA_PATH, build_pr_auth_headers, get_pr_config
 from services.processor.pr_response import parse_pr_response
 
 
@@ -29,7 +29,7 @@ def _map_product_code(
 ) -> str:
     path = PR_PRODUTO_DEPARA_PATH.format(cod_vinculo=cod_material)
     url = f"{base_url}{path}"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = build_pr_auth_headers(token)
     response = client.get(url, headers=headers)
     return _extract_pr_product_code(parse_pr_response(response))
 

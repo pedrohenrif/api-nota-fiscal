@@ -131,6 +131,8 @@ Fluxo de integração com o PR:
 1. De-para de produto: `GET /Controle/produtos/{codVinculo}` — envia código material Tasy, recebe código PR.
 2. Gravação da NF: `POST /NF` — payload final com códigos PR nos itens.
 
+Autenticação PR: header `AccessToken` com o valor do token (conforme Swagger do PR), não `Authorization: Bearer`.
+
 > **Nota:** os endpoints do PR exigem acesso pela rede com IP fixo (VM). Localmente o processor tentará homolog; erros de rede são esperados fora da VM.
 
 ### Frontend
