@@ -328,7 +328,7 @@ docker compose exec db psql -U tasy -d tasy_db -c \
 | `PR HTTP 401` / acesso negado | token ou header errado | PR usa header **`AccessToken`**, não Bearer; validar `PR_HOMOLOG_TOKEN` |
 | `The NF/Serie/Operador field is required` | payload com wrapper `{nota:...}` (formato errado) | PR exige JSON **flat** em camelCase; atualizar processor e reemitir |
 | `The nota field is required` + `qtdLote ... Int32` | `qtdLote` enviado como float (`1.0`) | processor converte para inteiro; reemitir |
-| `Observacao field is required` | lote sem observação | processor preenche `"-"` quando vazio |
+| `maximum recursion depth exceeded` | bug ao ler resposta PR com `sucesso: false` | atualizar processor (`pr_response.py`); reemitir |
 | `dataNF ... DateTime` | data em formato errado | datas devem ser ISO `2026-03-05T00:00:00Z` |
 | `PR HTTP 404` | URL base errada | `PR_BASE_URL_*` **sem** `/NF` no final |
 | de-para / produto | material Tasy sem vínculo no PR | conferir GET `/Controle/produtos/{cod}` no Swagger PR |

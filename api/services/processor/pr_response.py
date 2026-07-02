@@ -3,16 +3,31 @@ from typing import Any
 import httpx
 
 
-def _extract_business_error(data: Any) -> str | None:
+def _join_messages(value: Any) -> str | None:
+    if isinstance(value, list):
+        parts = [str(item).strip() for item in value if str(item).strip()]
+        return "; ".join(parts) if parts else None
+    if value is not None and str(value).strip():
+        return str(value).strip()
+    return None
+
+
+def _extract_business_error(data: Any, *, _seen: frozenset[int] | None = None) -> str | None:
     if isinstance(data, list):
         for item in data:
-            message = _extract_business_error(item)
+            message = _extract_business_error(item, _seen=_seen)
             if message:
                 return message
         return None
 
     if not isinstance(data, dict):
         return None
+
+    object_id = id(data)
+    seen = _seen or frozenset()
+    if object_id in seen:
+        return None
+    seen = seen | {object_id}
 
     for key in (
         "erro",
@@ -25,19 +40,23 @@ def _extract_business_error(data: Any) -> str | None:
         "descricao",
         "description",
     ):
-        value = data.get(key)
-        if value is not None and str(value).strip():
-            return str(value).strip()
+        message = _join_messages(data.get(key))
+        if message:
+            return message
 
-    for nested_key in ("data", "result", "retorno"):
+    erros_message = _join_messages(data.get("erros"))
+    if erros_message:
+        return erros_message
+
+    for nested_key in ("data", "result", "retorno", "produto"):
         if nested_key in data:
-            message = _extract_business_error(data[nested_key])
+            message = _extract_business_error(data[nested_key], _seen=seen)
             if message:
                 return message
 
     for flag in ("sucesso", "success", "ok"):
         if flag in data and data[flag] is False:
-            return _extract_business_error(data) or "Operacao rejeitada pelo PR"
+            return "Operacao rejeitada pelo PR"
 
     return None
 
@@ -68,10 +87,5 @@ def parse_pr_response(response: httpx.Response) -> Any:
     message = _extract_business_error(data)
     if message:
         raise ValueError(f"PR: {message}")
-
-    if isinstance(data, dict):
-        for flag in ("sucesso", "success"):
-            if flag in data and data[flag] is False:
-                raise ValueError(f"PR: {_extract_business_error(data) or 'Operacao rejeitada pelo PR'}")
 
     return data
