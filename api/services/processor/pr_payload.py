@@ -100,6 +100,8 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
     for produto in produtos:
         produto.pop("depara", None)
         produto.pop("codProdTasy", None)
+        produto.pop("codProdPR", None)
+        produto["codProd"] = str(produto.get("codProd") or "").strip()
         for lote in produto.get("loteNF") or []:
             if "qtdLote" in lote:
                 lote["qtdLote"] = _to_int(lote.get("qtdLote"))

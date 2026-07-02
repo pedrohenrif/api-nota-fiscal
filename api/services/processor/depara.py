@@ -121,12 +121,15 @@ def apply_depara_rules(payload: dict) -> dict:
             cod_tasy = str(produto.get("codProdTasy") or produto.get("codProd") or "").strip()
             if not cod_tasy:
                 raise ValueError("Item da nota sem codProd (codigo material Tasy)")
-            produto["codProdTasy"] = cod_tasy
-            produto["codProd"] = _map_product_code(
+            cod_pr = _map_product_code(
                 client=client,
                 base_url=pr_config["base_url"],
                 token=pr_config["token"],
                 cod_material=cod_tasy,
             )
+            # POST /NF do PR usa codProd = codigo Tasy (Cd_Integracao), nao CodProd interno.
+            produto["codProdTasy"] = cod_tasy
+            produto["codProdPR"] = cod_pr
+            produto["codProd"] = cod_tasy
 
     return mapped

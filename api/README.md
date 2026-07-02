@@ -128,8 +128,8 @@ Parâmetros do PR (processor-service):
 - Produção: `PR_BASE_URL_PRODUCTION` + tokens por estabelecimento (`PR_CASTELO_TOKEN`, `PR_HRAS_TOKEN`, `PR_HRT_TOKEN`, `PR_PONTA_PORA_TOKEN`).
 
 Fluxo de integração com o PR:
-1. De-para de produto: `GET /Controle/produtos/{codVinculo}` — envia código material Tasy, recebe código PR.
-2. Gravação da NF: `POST /NF` — body **flat** em camelCase (`nf`, `serie`, `operador`, etc.), **sem** wrapper `nota`, com datas ISO 8601 (`2026-03-05T00:00:00Z`). Cada lote exige `observacao` (usar `"-"` se vazio).
+1. De-para de produto: `GET /Controle/produtos/{codVinculo}` — valida vínculo do material Tasy no PR (retorna `CodProd` interno e `Cd_Integracao`).
+2. Gravação da NF: `POST /NF` — body **flat** em camelCase; em `produtos[].codProd` enviar o **código Tasy** (`Cd_Integracao`), não o `CodProd` interno.
 
 Autenticação PR: header `AccessToken` com o valor do token (conforme Swagger do PR), não `Authorization: Bearer`.
 
