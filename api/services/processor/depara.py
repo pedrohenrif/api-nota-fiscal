@@ -17,10 +17,18 @@ def _extract_pr_product_code(response_data: Any, cod_material: str) -> str:
         return _extract_pr_product_code(response_data[0], cod_material)
 
     if isinstance(response_data, dict):
-        for key in ("codProd", "codigo", "codigoProduto", "CodProd", "Codigo", "id"):
+        # PR homolog retorna CodProd (codigo interno PR) e Cd_Integracao (codigo Tasy).
+        # CodProd deve ter prioridade sobre codProd/codigo genericos.
+        for key in ("CodProd", "codProd", "codigo", "codigoProduto", "Codigo", "id"):
             value = response_data.get(key)
             if value is not None and str(value).strip():
-                return str(value).strip()
+                cod_pr = str(value).strip()
+                if cod_pr == str(cod_material).strip():
+                    raise ValueError(
+                        f"De-para retornou o mesmo codigo Tasy ({cod_material}) como codProd PR. "
+                        "Verifique o vinculo no PR homolog."
+                    )
+                return cod_pr
         for nested_key in ("produto", "data", "result"):
             if nested_key in response_data:
                 return _extract_pr_product_code(response_data[nested_key], cod_material)

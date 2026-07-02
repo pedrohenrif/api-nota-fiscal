@@ -5,7 +5,13 @@ import httpx
 
 def _join_messages(value: Any) -> str | None:
     if isinstance(value, list):
-        parts = [str(item).strip() for item in value if str(item).strip()]
+        parts: list[str] = []
+        seen: set[str] = set()
+        for item in value:
+            text = str(item).strip()
+            if text and text not in seen:
+                seen.add(text)
+                parts.append(text)
         return "; ".join(parts) if parts else None
     if value is not None and str(value).strip():
         return str(value).strip()
