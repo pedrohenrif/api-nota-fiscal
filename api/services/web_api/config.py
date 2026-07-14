@@ -1,5 +1,6 @@
 import os
 
+from services.common.estabelecimentos import ESTABELECIMENTOS
 
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
 
@@ -9,6 +10,9 @@ JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))
 
 # Service do extractor usado para acionar a emissao/envio de nota por estabelecimento.
 EXTRACTOR_URL = os.getenv("EXTRACTOR_URL", "http://localhost:8001")
+
+# URL do report-service (disparo manual de e-mail).
+REPORT_URL = os.getenv("REPORT_URL", "http://localhost:8004")
 
 # Credenciais do administrador inicial criado no startup (seed).
 BOOTSTRAP_ADMIN_USERNAME = os.getenv("BOOTSTRAP_ADMIN_USERNAME", "admin")
@@ -20,5 +24,3 @@ CORS_ORIGINS = [
     for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
     if origin.strip()
 ]
-
-ESTABELECIMENTOS = ["Castelo", "HRAS", "HRT", "Ponta Pora"]

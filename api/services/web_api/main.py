@@ -5,12 +5,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from services.web_api import panel_data, repository
+from services.common.estab_config import (
+    ensure_estab_config_table,
+    get_estab_config,
+    list_estab_configs,
+    update_estab_config,
+)
 from services.web_api.config import (
     BOOTSTRAP_ADMIN_PASSWORD,
     BOOTSTRAP_ADMIN_USERNAME,
     CORS_ORIGINS,
     ESTABELECIMENTOS,
     EXTRACTOR_URL,
+    REPORT_URL,
 )
 from services.web_api.db import Base, SessionLocal, engine, get_db
 from services.web_api.deps import get_current_user, require_admin
@@ -19,6 +26,9 @@ from services.web_api.models import Usuario
 from services.web_api.schemas import (
     EmitirNotaEspecificaRequest,
     EmitirNotaRequest,
+    EnviarRelatorioRequest,
+    EstabelecimentoConfigOut,
+    EstabelecimentoConfigUpdate,
     LoginRequest,
     NotaConsultaOut,
     NotaDetalheOut,
@@ -45,6 +55,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_estab_config_table()
     _seed_admin()
 
 
@@ -399,3 +410,76 @@ def listar_logs(
         somente_erro=somente_erro,
         limit=limit,
     )
+
+
+@app.get("/admin/estabelecimentos/config", response_model=list[EstabelecimentoConfigOut])
+def listar_config_estabelecimentos(_: Usuario = Depends(require_admin)) -> list[dict]:
+    return list_estab_configs()
+
+
+@app.patch(
+    "/admin/estabelecimentos/{estabelecimento}/config",
+    response_model=EstabelecimentoConfigOut,
+)
+def atualizar_config_estabelecimento(
+    estabelecimento: str,
+    payload: EstabelecimentoConfigUpdate,
+    _: Usuario = Depends(require_admin),
+) -> dict:
+    if estabelecimento not in ESTABELECIMENTOS:
+        raise HTTPException(status_code=422, detail="Estabelecimento invalido")
+    if payload.scheduler_enabled is None and payload.report_enabled is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Informe scheduler_enabled e/ou report_enabled",
+        )
+    updated = update_estab_config(
+        estabelecimento,
+        scheduler_enabled=payload.scheduler_enabled,
+        report_enabled=payload.report_enabled,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado")
+    return updated
+
+
+@app.post("/admin/relatorios/enviar")
+def enviar_relatorio_email(
+    payload: EnviarRelatorioRequest,
+    _: Usuario = Depends(require_admin),
+) -> dict:
+    if payload.estabelecimento not in ESTABELECIMENTOS:
+        raise HTTPException(status_code=422, detail="Estabelecimento invalido")
+    try:
+        with httpx.Client(timeout=180.0) as client:
+            response = client.post(
+                f"{REPORT_URL}/relatorios/enviar",
+                params={"estabelecimento": payload.estabelecimento},
+            )
+            if response.is_error:
+                detail = response.text
+                try:
+                    body = response.json()
+                    detail = body.get("detail") or body
+                except ValueError:
+                    pass
+                raise HTTPException(status_code=response.status_code, detail=detail)
+            return response.json()
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de relatorio indisponivel. Verifique o report-service.",
+        )
+
+
+@app.get("/admin/estabelecimentos/{estabelecimento}/config", response_model=EstabelecimentoConfigOut)
+def obter_config_estabelecimento(
+    estabelecimento: str,
+    _: Usuario = Depends(require_admin),
+) -> dict:
+    cfg = get_estab_config(estabelecimento)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="Estabelecimento nao encontrado")
+    return cfg

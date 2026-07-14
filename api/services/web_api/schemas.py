@@ -126,3 +126,19 @@ class NotaDetalheOut(NotaStatusOut):
     consulta_mensagem: Optional[str] = None
     preview: Optional[NotaPreviewOut] = None
     depara_resumo: Optional[dict] = None
+
+
+class EstabelecimentoConfigOut(BaseModel):
+    estabelecimento: str
+    scheduler_enabled: bool
+    report_enabled: bool
+    updated_at: Optional[datetime] = None
+
+
+class EstabelecimentoConfigUpdate(BaseModel):
+    scheduler_enabled: Optional[bool] = None
+    report_enabled: Optional[bool] = None
+
+
+class EnviarRelatorioRequest(BaseModel):
+    estabelecimento: str

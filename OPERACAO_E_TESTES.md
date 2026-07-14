@@ -47,6 +47,8 @@ Complementa o guia de instalação: [INSTALACAO_VM.md](./INSTALACAO_VM.md).
 
 ## 2. Modo de operacao: disparo manual pelo site
 
+> **Scheduler por estabelecimento e e-mail:** ver guia completo em [OPERACAO_SCHEDULER_E_EMAIL.md](./OPERACAO_SCHEDULER_E_EMAIL.md) (ligar/desligar via `.env` e via site Configuracoes).
+
 ### Configuracao no `api/.env`
 
 ```env

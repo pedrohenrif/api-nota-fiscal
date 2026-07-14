@@ -85,14 +85,37 @@ services:
         condition: service_healthy
       extractor-service:
         condition: service_started
+      report-service:
+        condition: service_started
     environment:
       POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
       EXTRACTOR_URL: http://extractor-service:8001
+      REPORT_URL: http://report-service:8004
     ports:
       - "8003:8003"
     command: uvicorn services.web_api.main:app --host 0.0.0.0 --port 8003
     volumes:
       - ./:/app
+
+  report-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
+      LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
+    ports:
+      - "8004:8004"
+    command: uvicorn services.report.main:app --host 0.0.0.0 --port 8004
+    volumes:
+      - ./:/app
+      - ${ORACLE_HOST_CLIENT_DIR:-/opt/oracle/instantclient_21_19}:${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}:ro
 
 volumes:
   pgdata:

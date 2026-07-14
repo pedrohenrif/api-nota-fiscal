@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from threading import Event, Lock, Thread
 
+from services.common.estabelecimentos import ESTABELECIMENTOS
+from services.common.estab_config import ensure_estab_config_table, list_scheduler_enabled
 from services.extractor.config import (
     EXTRACTION_RUN_ON_STARTUP,
     EXTRACTION_SCHEDULER_ENABLED,
@@ -18,7 +20,6 @@ from services.extractor.publisher import publish_raw_note
 
 app = FastAPI(title="Extractor Service")
 
-ESTABELECIMENTOS = ["Castelo", "HRAS", "HRT", "Ponta Pora"]
 scheduler_stop_signal = Event()
 scheduler_lock = Lock()
 scheduler_thread: Thread | None = None
@@ -27,17 +28,23 @@ scheduler_thread: Thread | None = None
 @app.get("/health")
 def health() -> dict:
     running = scheduler_thread.is_alive() if scheduler_thread else False
+    enabled_targets = list_scheduler_enabled() if EXTRACTION_SCHEDULER_ENABLED else []
     return {
         "status": "ok",
         "service": "extractor",
         "scheduler_enabled": EXTRACTION_SCHEDULER_ENABLED,
         "scheduler_running": running,
         "poll_interval_minutes": POLL_INTERVAL_MINUTES,
+        "scheduler_estabelecimentos": enabled_targets,
     }
 
 
 def _run_extraction_cycle(estabelecimento: str | None = None) -> dict:
-    targets = [estabelecimento] if estabelecimento else ESTABELECIMENTOS
+    if estabelecimento:
+        targets = [estabelecimento]
+    else:
+        # Ciclo automatico: apenas unidades com scheduler_enabled=true no Postgres.
+        targets = list_scheduler_enabled()
     published = 0
     oracle_client = MockOracleClient() if USE_MOCK_ORACLE else None
     for target in targets:
@@ -64,6 +71,7 @@ def _scheduler_loop() -> None:
 @app.on_event("startup")
 def startup_scheduler() -> None:
     global scheduler_thread
+    ensure_estab_config_table()
     if not EXTRACTION_SCHEDULER_ENABLED:
         return
     if scheduler_thread and scheduler_thread.is_alive():
