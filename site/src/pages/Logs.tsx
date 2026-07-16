@@ -4,13 +4,14 @@ import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import { formatDataHora, buildQuery } from "../lib/format";
 import { formatRetornoPr } from "../lib/notas";
 import type { NotaStatus } from "../types";
-import { NOTA_STATUS_OPTIONS } from "../types";
+import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
 
 export default function Logs() {
   const [logs, setLogs] = useState<NotaStatus[]>([]);
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
   const [estabelecimento, setEstabelecimento] = useState("");
   const [status, setStatus] = useState("");
+  const [erroTipo, setErroTipo] = useState("");
   const [somenteErro, setSomenteErro] = useState(true);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export default function Logs() {
       const query = buildQuery({
         estabelecimento: estabelecimento || undefined,
         status: status || undefined,
+        erro_tipo: erroTipo || undefined,
         somente_erro: somenteErro ? "true" : "false",
         limit: "100",
       });
@@ -34,7 +36,7 @@ export default function Logs() {
     } finally {
       setCarregando(false);
     }
-  }, [estabelecimento, somenteErro, status]);
+  }, [estabelecimento, erroTipo, somenteErro, status]);
 
   useEffect(() => {
     api<string[]>("/estabelecimentos")
@@ -82,6 +84,17 @@ export default function Logs() {
             </select>
           </label>
 
+          <label>
+            Tipo de erro
+            <select value={erroTipo} onChange={(e) => setErroTipo(e.target.value)}>
+              {ERRO_TIPO_OPTIONS.map((opt) => (
+                <option key={opt.value || "all-erro"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="logs-checkbox">
             <input
               type="checkbox"
@@ -119,6 +132,7 @@ export default function Logs() {
                 <th>Seq</th>
                 <th>Estab.</th>
                 <th>Status</th>
+                <th>Tipo erro</th>
                 <th>Tent.</th>
                 <th>Retorno PR</th>
               </tr>
@@ -126,13 +140,13 @@ export default function Logs() {
             <tbody>
               {carregando ? (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={8} className="empty">
                     Carregando...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="empty">
+                  <td colSpan={8} className="empty">
                     Nenhum registro encontrado.
                   </td>
                 </tr>
@@ -154,6 +168,15 @@ export default function Logs() {
                         <td>{log.estabelecimento}</td>
                         <td>
                           <span className={`status status-${log.status}`}>{log.status}</span>
+                        </td>
+                        <td>
+                          {log.erro_tipo ? (
+                            <span className={`erro-tipo erro-tipo-${log.erro_tipo}`}>
+                              {ERRO_TIPO_LABELS[log.erro_tipo] ?? log.erro_tipo}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
                         </td>
                         <td>{log.tentativas}</td>
                         <td
@@ -180,7 +203,7 @@ export default function Logs() {
                       </tr>
                       {expandido && detalhe && retorno.kind === "error" ? (
                         <tr className="log-erro-expand-row">
-                          <td colSpan={7}>
+                          <td colSpan={8}>
                             <pre className="log-erro-pre">{detalhe}</pre>
                           </td>
                         </tr>

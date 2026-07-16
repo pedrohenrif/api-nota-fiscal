@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -15,9 +16,13 @@ from services.processor.config import (
 from services.processor.db import SessionLocal
 from services.processor.depara import apply_depara_rules
 from services.processor.dispatcher import send_to_pr
-from services.processor.pr_response import extract_pr_success_info
+from services.processor.error_tipo import classify_error_tipo
 from services.processor.migrations import parse_payload_metadata
-from services.processor.repository import upsert_processing_status
+from services.processor.pr_response import extract_pr_success_info
+from services.processor.repository import get_sent_record, upsert_processing_status
+from services.processor.tasy_writeback import mark_tasy_integrated
+
+logger = logging.getLogger(__name__)
 
 
 def _publish(queue_name: str, payload: dict) -> None:
@@ -80,9 +85,38 @@ def process_payload(payload: dict) -> str:
         if _should_wait_retry(payload):
             return "defer"
 
+        already_sent = get_sent_record(
+            db,
+            estabelecimento=estabelecimento,
+            nf=nf,
+            nr_sequencia=meta.get("nr_sequencia"),
+        )
+        if already_sent is not None:
+            logger.info(
+                "Nota ja enviada (sent) — ignorando reprocessamento nf=%s seq=%s",
+                nf,
+                meta.get("nr_sequencia"),
+            )
+            return "sent"
+
         mapped_payload = apply_depara_rules(payload)
         pr_result = send_to_pr(mapped_payload)
         success_info = extract_pr_success_info(pr_result) or {}
+
+        tasy_warning = None
+        try:
+            mark_tasy_integrated(meta.get("nr_sequencia"))
+        except Exception as writeback_exc:
+            tasy_warning = str(writeback_exc)
+            logger.error("PR OK, mas write-back Tasy falhou: %s", tasy_warning)
+
+        pr_mensagem = success_info.get("pr_mensagem")
+        if tasy_warning:
+            pr_mensagem = (
+                f"{pr_mensagem or 'Nota gravada no PR'}; "
+                f"alerta Tasy: {tasy_warning}"
+            )
+
         upsert_processing_status(
             db,
             estabelecimento=estabelecimento,
@@ -90,13 +124,15 @@ def process_payload(payload: dict) -> str:
             status="sent",
             tentativas=retries + 1,
             erro=None,
+            erro_tipo=None,
             pr_id=success_info.get("pr_id"),
-            pr_mensagem=success_info.get("pr_mensagem"),
+            pr_mensagem=pr_mensagem,
             **meta,
         )
         return "sent"
     except Exception as exc:  # pragma: no cover
         error_message = str(exc)
+        erro_tipo = classify_error_tipo(error_message)
         if retries + 1 >= MAX_PROCESSING_RETRIES:
             upsert_processing_status(
                 db,
@@ -105,6 +141,7 @@ def process_payload(payload: dict) -> str:
                 status="dead_letter",
                 tentativas=retries + 1,
                 erro=error_message,
+                erro_tipo=erro_tipo,
                 **meta,
             )
             _publish_dead_letter(payload, error_message=error_message)
@@ -116,6 +153,7 @@ def process_payload(payload: dict) -> str:
             status="retry_pending",
             tentativas=retries + 1,
             erro=error_message,
+            erro_tipo=erro_tipo,
             **meta,
         )
         _schedule_retry(payload)

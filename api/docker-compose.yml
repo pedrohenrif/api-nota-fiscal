@@ -65,9 +65,12 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      extractor-service:
+        condition: service_started
     environment:
       POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      EXTRACTOR_URL: http://extractor-service:8001
     ports:
       - "8002:8002"
     command: uvicorn services.processor.main:app --host 0.0.0.0 --port 8002

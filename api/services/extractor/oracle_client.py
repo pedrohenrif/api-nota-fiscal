@@ -41,6 +41,34 @@ class OracleClient:
                 rows = cursor.fetchall()
         return [dict(zip(columns, row)) for row in rows]
 
+    def execute(self, sql: str, params: dict[str, Any]) -> int:
+        try:
+            import oracledb
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "Dependencia oracledb nao instalada. Adicione 'oracledb' no ambiente."
+            ) from exc
+
+        ensure_oracle_client()
+
+        if self._config["mode"] == "connect_string":
+            connection = oracledb.connect(dsn=self._config["connect_string"])
+        else:
+            connection = oracledb.connect(
+                user=self._config["user"],
+                password=self._config["password"],
+                host=self._config["host"],
+                port=self._config["port"],
+                service_name=self._config["service_name"],
+            )
+
+        with connection:
+            with connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                rowcount = cursor.rowcount
+            connection.commit()
+        return int(rowcount or 0)
+
 
 def build_oracle_client() -> OracleClient:
     return OracleClient(dsn=ORACLE_DSN)

@@ -11,6 +11,7 @@ from services.extractor.sql_templates import (
     HEADER_NOTE_BY_NR_SEQUENCIA_SQL,
     LOTS_BY_ITEM_FALLBACK_SQL,
     LOTS_BY_ITEM_LOTE_SQL,
+    MARK_NOTE_INTEGRATED_SQL,
     build_header_notes_sql,
     build_items_by_nr_sequencia_sql,
 )
@@ -18,6 +19,8 @@ from services.extractor.sql_templates import (
 
 class QueryExecutor(Protocol):
     def fetch_all(self, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]: ...
+
+    def execute(self, sql: str, params: dict[str, Any]) -> int: ...
 
 
 def _g(row: dict[str, Any], key: str, default: Any = None) -> Any:
@@ -249,7 +252,26 @@ def extract_single_note(
     return NotaFiscalPRPayload.model_validate(preview)
 
 
+def mark_note_integrated(
+    nr_sequencia: str | int,
+    db_client: QueryExecutor | None = None,
+) -> dict[str, Any]:
+    oracle = db_client or build_oracle_client()
+    updated = oracle.execute(
+        MARK_NOTE_INTEGRATED_SQL,
+        params={"nr_sequencia": nr_sequencia},
+    )
+    return {
+        "nr_sequencia": str(nr_sequencia),
+        "updated": updated > 0,
+        "rows_affected": updated,
+    }
+
+
 class MockOracleClient:
+    def execute(self, sql: str, params: dict[str, Any]) -> int:
+        return 1
+
     def fetch_all(self, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         cd_estab = params.get("cd_estabelecimento", 8)
 

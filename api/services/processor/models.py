@@ -15,6 +15,7 @@ class NotaProcessamento(Base):
     status = Column(String(30), nullable=False, default="pending")
     tentativas = Column(Integer, nullable=False, default=0)
     erro = Column(Text, nullable=True)
+    erro_tipo = Column(String(40), nullable=True, index=True)
     pr_id = Column(Integer, nullable=True)
     pr_mensagem = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

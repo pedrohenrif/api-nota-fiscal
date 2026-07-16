@@ -17,6 +17,7 @@ from services.extractor.extractor import (
     consult_note_by_nr_sequencia,
     extract_pending_notes,
     extract_single_note,
+    mark_note_integrated,
 )
 from services.extractor.publisher import publish_raw_note
 
@@ -137,6 +138,18 @@ def consultar_nota(estabelecimento: str, nr_sequencia: str) -> dict:
             nr_sequencia=nr_sequencia,
             db_client=oracle_client,
         )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
+
+
+@app.post("/notas/marcar-integrada")
+def marcar_nota_integrada(nr_sequencia: str) -> dict:
+    """Atualiza dt_integracao = SYSDATE no Tasy apos sucesso no PR."""
+    if not str(nr_sequencia).strip():
+        raise HTTPException(status_code=422, detail="nr_sequencia obrigatorio")
+    oracle_client = MockOracleClient() if USE_MOCK_ORACLE else None
+    try:
+        return mark_note_integrated(nr_sequencia=nr_sequencia, db_client=oracle_client)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
 

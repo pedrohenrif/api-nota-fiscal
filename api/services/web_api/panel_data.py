@@ -15,6 +15,7 @@ SELECT
     status,
     tentativas,
     erro,
+    erro_tipo,
     pr_id,
     pr_mensagem,
     created_at,
@@ -30,6 +31,7 @@ def list_notas(
     nr_sequencia: Optional[str] = None,
     fornecedor: Optional[str] = None,
     status: Optional[str] = None,
+    erro_tipo: Optional[str] = None,
     data_nf_inicio: Optional[date] = None,
     data_nf_fim: Optional[date] = None,
     limit: int = 200,
@@ -52,6 +54,9 @@ def list_notas(
     if status:
         conditions.append("status = :status")
         params["status"] = status.strip()
+    if erro_tipo:
+        conditions.append("erro_tipo = :erro_tipo")
+        params["erro_tipo"] = erro_tipo.strip()
     if data_nf_inicio:
         conditions.append("DATE(data_nf) >= :data_nf_inicio")
         params["data_nf_inicio"] = data_nf_inicio
@@ -72,6 +77,7 @@ def list_logs(
     db: Session,
     estabelecimento: Optional[str] = None,
     status: Optional[str] = None,
+    erro_tipo: Optional[str] = None,
     somente_erro: bool = True,
     limit: int = 100,
 ) -> list[dict]:
@@ -84,6 +90,9 @@ def list_logs(
     if status:
         conditions.append("status = :status")
         params["status"] = status.strip()
+    if erro_tipo:
+        conditions.append("erro_tipo = :erro_tipo")
+        params["erro_tipo"] = erro_tipo.strip()
     if somente_erro:
         conditions.append("erro IS NOT NULL AND TRIM(erro) <> ''")
 

@@ -18,6 +18,7 @@ export interface NotaStatus {
   status: string;
   tentativas: number;
   erro?: string | null;
+  erro_tipo?: string | null;
   pr_id?: number | null;
   pr_mensagem?: string | null;
   created_at?: string | null;
@@ -29,6 +30,7 @@ export interface NotaFilters {
   nr_sequencia?: string;
   fornecedor?: string;
   status?: string;
+  erro_tipo?: string;
   data_nf_inicio?: string;
   data_nf_fim?: string;
 }
@@ -108,4 +110,19 @@ export const NOTA_STATUS_OPTIONS = [
   { value: "dead_letter", label: "Falha definitiva" },
   { value: "pending", label: "Pendente" },
 ] as const;
+
+export const ERRO_TIPO_OPTIONS = [
+  { value: "", label: "Todos os tipos" },
+  { value: "sem_depara", label: "Sem de-para" },
+  { value: "sem_lote", label: "Sem lote" },
+  { value: "retorno_pr", label: "Retorno PR" },
+  { value: "outro", label: "Outro" },
+] as const;
+
+export const ERRO_TIPO_LABELS: Record<string, string> = {
+  sem_depara: "Sem de-para",
+  sem_lote: "Sem lote",
+  retorno_pr: "Retorno PR",
+  outro: "Outro",
+};
 

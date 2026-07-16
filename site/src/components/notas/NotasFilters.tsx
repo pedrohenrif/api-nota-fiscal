@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { NotaFilters } from "../../types";
-import { NOTA_STATUS_OPTIONS } from "../../types";
+import { ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../../types";
 import { countActiveFilters, filterSummary } from "../../lib/filters";
 
 interface NotasFiltersProps {
@@ -95,6 +95,19 @@ export default function NotasFilters({
               >
                 {NOTA_STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value || "all"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-field">
+              <span className="filter-label">Tipo de erro</span>
+              <select
+                value={draft.erro_tipo ?? ""}
+                onChange={(e) => update("erro_tipo", e.target.value)}
+              >
+                {ERRO_TIPO_OPTIONS.map((opt) => (
+                  <option key={opt.value || "all-erro"} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}

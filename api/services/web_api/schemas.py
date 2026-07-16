@@ -111,6 +111,7 @@ class NotaStatusOut(BaseModel):
     status: str
     tentativas: int
     erro: Optional[str] = None
+    erro_tipo: Optional[str] = None
     pr_id: Optional[int] = None
     pr_mensagem: Optional[str] = None
     created_at: Optional[datetime] = None

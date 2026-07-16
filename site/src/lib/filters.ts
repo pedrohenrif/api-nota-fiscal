@@ -1,4 +1,5 @@
 import type { NotaFilters } from "../types";
+import { ERRO_TIPO_LABELS } from "../types";
 
 export function countActiveFilters(filtros: NotaFilters): number {
   return Object.values(filtros).filter((v) => v?.trim()).length;
@@ -10,6 +11,9 @@ export function filterSummary(filtros: NotaFilters): string[] {
   if (filtros.nr_sequencia?.trim()) chips.push(`Seq.: ${filtros.nr_sequencia.trim()}`);
   if (filtros.fornecedor?.trim()) chips.push(`Fornecedor: ${filtros.fornecedor.trim()}`);
   if (filtros.status?.trim()) chips.push(`Status: ${filtros.status.trim()}`);
+  if (filtros.erro_tipo?.trim()) {
+    chips.push(`Erro: ${ERRO_TIPO_LABELS[filtros.erro_tipo] ?? filtros.erro_tipo}`);
+  }
   if (filtros.data_nf_inicio?.trim()) chips.push(`De: ${filtros.data_nf_inicio.trim()}`);
   if (filtros.data_nf_fim?.trim()) chips.push(`Até: ${filtros.data_nf_fim.trim()}`);
   return chips;

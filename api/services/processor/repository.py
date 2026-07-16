@@ -6,6 +6,21 @@ from sqlalchemy.orm import Session
 from services.processor.models import NotaProcessamento
 
 
+def get_sent_record(
+    db: Session,
+    estabelecimento: str,
+    nf: str,
+    nr_sequencia: str | None = None,
+) -> NotaProcessamento | None:
+    query = db.query(NotaProcessamento).filter(
+        NotaProcessamento.estabelecimento == estabelecimento,
+        NotaProcessamento.status == "sent",
+    )
+    if nr_sequencia:
+        return query.filter(NotaProcessamento.nr_sequencia == nr_sequencia).first()
+    return query.filter(NotaProcessamento.nf == nf).first()
+
+
 def upsert_processing_status(
     db: Session,
     estabelecimento: str,
@@ -13,6 +28,7 @@ def upsert_processing_status(
     status: str,
     tentativas: int = 0,
     erro: str | None = None,
+    erro_tipo: str | None = None,
     pr_id: int | None = None,
     pr_mensagem: str | None = None,
     nr_sequencia: str | None = None,
@@ -37,6 +53,7 @@ def upsert_processing_status(
             status=status,
             tentativas=tentativas,
             erro=erro,
+            erro_tipo=erro_tipo,
             pr_id=pr_id,
             pr_mensagem=pr_mensagem,
         )
@@ -49,12 +66,14 @@ def upsert_processing_status(
         record.status = status
         record.tentativas = tentativas
         record.erro = erro
+        record.erro_tipo = erro_tipo
         if pr_id is not None:
             record.pr_id = pr_id
         if pr_mensagem is not None:
             record.pr_mensagem = pr_mensagem
         if status == "sent":
             record.erro = None
+            record.erro_tipo = None
     db.commit()
     db.refresh(record)
     return record

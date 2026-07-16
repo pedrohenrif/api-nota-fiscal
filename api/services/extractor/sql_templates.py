@@ -156,3 +156,11 @@ def build_items_by_nr_sequencia_sql(cd_operacao_nf_item_not_in: tuple[int, ...])
             cd_operacao_nf_item_not_in
         )
     )
+
+
+MARK_NOTE_INTEGRATED_SQL = """
+UPDATE tasy.nota_fiscal
+SET dt_integracao = SYSDATE
+WHERE nr_sequencia = :nr_sequencia
+  AND dt_integracao IS NULL
+"""

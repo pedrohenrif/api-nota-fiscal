@@ -1,6 +1,7 @@
 import { formatData } from "../../lib/format";
 import { formatRetornoPr, podeReemitir } from "../../lib/notas";
 import type { NotaStatus } from "../../types";
+import { ERRO_TIPO_LABELS } from "../../types";
 
 interface NotasTableProps {
   notas: NotaStatus[];
@@ -27,6 +28,7 @@ export default function NotasTable({
           <th>Data NF</th>
           <th>Estabelecimento</th>
           <th>Status</th>
+          <th>Tipo erro</th>
           <th>Tentativas</th>
           <th>Retorno PR</th>
           <th>Ações</th>
@@ -35,13 +37,13 @@ export default function NotasTable({
       <tbody>
         {carregando ? (
           <tr>
-            <td colSpan={9} className="empty">
+            <td colSpan={10} className="empty">
               Carregando...
             </td>
           </tr>
         ) : notas.length === 0 ? (
           <tr>
-            <td colSpan={9} className="empty">
+            <td colSpan={10} className="empty">
               Nenhuma nota encontrada.
             </td>
           </tr>
@@ -65,6 +67,15 @@ export default function NotasTable({
                 <td>{nota.estabelecimento}</td>
                 <td>
                   <span className={`status status-${nota.status}`}>{nota.status}</span>
+                </td>
+                <td>
+                  {nota.erro_tipo ? (
+                    <span className={`erro-tipo erro-tipo-${nota.erro_tipo}`}>
+                      {ERRO_TIPO_LABELS[nota.erro_tipo] ?? nota.erro_tipo}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td>{nota.tentativas}</td>
                 <td

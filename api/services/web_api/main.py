@@ -312,6 +312,7 @@ def listar_notas(
     nr_sequencia: str | None = None,
     fornecedor: str | None = None,
     status: str | None = None,
+    erro_tipo: str | None = None,
     data_nf_inicio: date | None = None,
     data_nf_fim: date | None = None,
     current_user: Usuario = Depends(get_current_user),
@@ -328,6 +329,7 @@ def listar_notas(
         nr_sequencia=nr_sequencia,
         fornecedor=fornecedor,
         status=status,
+        erro_tipo=erro_tipo,
         data_nf_inicio=data_nf_inicio,
         data_nf_fim=data_nf_fim,
     )
@@ -400,6 +402,7 @@ def listar_logs(
     db: Session = Depends(get_db),
     estabelecimento: str | None = None,
     status: str | None = None,
+    erro_tipo: str | None = None,
     somente_erro: bool = True,
     limit: int = 100,
 ) -> list[dict]:
@@ -407,6 +410,7 @@ def listar_logs(
         db,
         estabelecimento=estabelecimento,
         status=status,
+        erro_tipo=erro_tipo,
         somente_erro=somente_erro,
         limit=limit,
     )

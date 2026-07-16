@@ -27,6 +27,7 @@ export function useNotas({ estabelecimento, isAdmin }: UseNotasOptions) {
           nr_sequencia: ativos.nr_sequencia,
           fornecedor: ativos.fornecedor,
           status: ativos.status,
+          erro_tipo: ativos.erro_tipo,
           data_nf_inicio: ativos.data_nf_inicio,
           data_nf_fim: ativos.data_nf_fim,
         });

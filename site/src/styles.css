@@ -1131,6 +1131,35 @@ select:focus {
   line-height: 1.4;
 }
 
+.erro-tipo {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.erro-tipo-sem_depara {
+  background: #fde8e8;
+  color: #b91c1c;
+}
+
+.erro-tipo-sem_lote {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.erro-tipo-retorno_pr {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.erro-tipo-outro {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .status {
   padding: 4px 11px;
   border-radius: 999px;
