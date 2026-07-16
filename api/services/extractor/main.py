@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, HTTPException
 from threading import Event, Lock, Thread
 
@@ -17,6 +19,8 @@ from services.extractor.extractor import (
     extract_single_note,
 )
 from services.extractor.publisher import publish_raw_note
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Extractor Service")
 
@@ -46,26 +50,41 @@ def _run_extraction_cycle(estabelecimento: str | None = None) -> dict:
         # Ciclo automatico: apenas unidades com scheduler_enabled=true no Postgres.
         targets = list_scheduler_enabled()
     published = 0
+    errors: list[dict] = []
     oracle_client = MockOracleClient() if USE_MOCK_ORACLE else None
     for target in targets:
-        notes = extract_pending_notes(estabelecimento=target, db_client=oracle_client)
-        for note in notes:
-            publish_raw_note(note.model_dump(mode="json"))
-            published += 1
-    return {"published_count": published, "estabelecimentos": targets}
+        try:
+            notes = extract_pending_notes(estabelecimento=target, db_client=oracle_client)
+            for note in notes:
+                publish_raw_note(note.model_dump(mode="json"))
+                published += 1
+        except Exception as exc:
+            logger.exception("Falha no ciclo de extracao para %s: %s", target, exc)
+            errors.append({"estabelecimento": target, "erro": str(exc)})
+    return {
+        "published_count": published,
+        "estabelecimentos": targets,
+        "errors": errors,
+    }
 
 
 def _scheduler_loop() -> None:
     interval_seconds = max(POLL_INTERVAL_MINUTES, 1) * 60
     if EXTRACTION_RUN_ON_STARTUP:
         with scheduler_lock:
-            _run_extraction_cycle()
+            try:
+                _run_extraction_cycle()
+            except Exception:
+                logger.exception("Falha no ciclo inicial do scheduler")
 
     while not scheduler_stop_signal.wait(timeout=interval_seconds):
         if scheduler_stop_signal.is_set():
             break
         with scheduler_lock:
-            _run_extraction_cycle()
+            try:
+                _run_extraction_cycle()
+            except Exception:
+                logger.exception("Falha no ciclo periodico do scheduler")
 
 
 @app.on_event("startup")

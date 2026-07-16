@@ -18,13 +18,13 @@ FROM
 LEFT JOIN
     tasy.nota_fiscal_venc nfv ON nf.nr_sequencia = nfv.nr_sequencia
 WHERE
-    ie_tipo_nota = 'EN'
-    AND dt_integracao IS NULL
-    AND TO_CHAR(dt_atualizacao_estoque, 'YYYY-MM-DD') >= :dt_atualizacao_estoque_min
-    AND TO_CHAR(dt_emissao, 'YYYY-MM-DD') >= :dt_emissao_min
-    AND cd_estabelecimento = :cd_estabelecimento
-    AND ie_situacao NOT IN (2, 3)
-    AND cd_operacao_nf IN ({cd_operacao_nf_filter})
+    nf.ie_tipo_nota = 'EN'
+    AND nf.dt_integracao IS NULL
+    AND TO_CHAR(nf.dt_atualizacao_estoque, 'YYYY-MM-DD') >= :dt_atualizacao_estoque_min
+    AND TO_CHAR(nf.dt_emissao, 'YYYY-MM-DD') >= :dt_emissao_min
+    AND nf.cd_estabelecimento = :cd_estabelecimento
+    AND nf.ie_situacao NOT IN (2, 3)
+    AND nf.cd_operacao_nf IN ({cd_operacao_nf_filter})
 GROUP BY
     nf.nr_nota_fiscal,
     nf.cd_cgc_emitente,
@@ -105,7 +105,7 @@ LEFT JOIN
     tasy.material mat ON nfi.cd_material = mat.cd_material
 WHERE
     nf.nr_sequencia = :nr_sequencia
-    AND cd_local_estoque NOT IN (104)
+    AND nfi.cd_local_estoque NOT IN (104)
     AND nf.cd_operacao_nf NOT IN ({cd_operacao_nf_item_not_in_filter})
 """
 
