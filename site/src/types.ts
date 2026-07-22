@@ -73,6 +73,20 @@ export interface AccessAuditPage {
   offset: number;
 }
 
+export interface AccessIpSummaryItem {
+  ip: string;
+  acessos: number;
+  ultimo_acesso?: string | null;
+  ultimo_usuario?: string | null;
+}
+
+export interface AccessIpSummary {
+  total_acessos: number;
+  ips_unicos: number;
+  usuarios_unicos: number;
+  por_ip: AccessIpSummaryItem[];
+}
+
 export interface NotaConsulta {
   encontrada: boolean;
   valido: boolean;

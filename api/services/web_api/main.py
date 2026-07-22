@@ -24,6 +24,7 @@ from services.web_api.audit import (
     list_access_logs,
     resolve_action,
     should_skip_path,
+    summarize_access_ips,
     username_from_request,
     write_audit_log,
 )
@@ -41,6 +42,7 @@ from services.web_api.http_errors import raise_for_extractor_response
 from services.web_api.models import Usuario
 from services.web_api.schemas import (
     AccessAuditPageOut,
+    AccessIpSummaryOut,
     DestinatarioCreate,
     DestinatarioOut,
     DestinatarioUpdate,
@@ -511,6 +513,26 @@ def listar_logs(
         somente_erro=somente_erro,
         page=page,
         page_size=page_size,
+    )
+
+
+@app.get("/admin/acesso/resumo", response_model=AccessIpSummaryOut)
+def resumir_acesso_ips(
+    _: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db),
+    username: str | None = None,
+    estabelecimento: str | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    top: int = 50,
+) -> dict:
+    return summarize_access_ips(
+        db,
+        username=username,
+        estabelecimento=estabelecimento,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        top=top,
     )
 
 

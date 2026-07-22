@@ -175,6 +175,20 @@ class AccessAuditPageOut(BaseModel):
     offset: int
 
 
+class AccessIpSummaryItem(BaseModel):
+    ip: str
+    acessos: int
+    ultimo_acesso: Optional[datetime] = None
+    ultimo_usuario: Optional[str] = None
+
+
+class AccessIpSummaryOut(BaseModel):
+    total_acessos: int
+    ips_unicos: int
+    usuarios_unicos: int
+    por_ip: list[AccessIpSummaryItem]
+
+
 class DestinatarioOut(BaseModel):
     id: int
     estabelecimento: str

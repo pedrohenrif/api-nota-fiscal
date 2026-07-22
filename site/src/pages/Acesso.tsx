@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { api } from "../api";
 import Pagination from "../components/Pagination";
 import { buildQuery, formatDataHora } from "../lib/format";
-import type { AccessAuditLog, AccessAuditPage } from "../types";
+import type { AccessAuditLog, AccessAuditPage, AccessIpSummary } from "../types";
 
 const ACTION_OPTIONS = [
   { value: "", label: "Todas as ações" },
@@ -36,6 +36,7 @@ export default function Acesso() {
   const [jaPesquisou, setJaPesquisou] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [resumo, setResumo] = useState<AccessIpSummary | null>(null);
   const pageSize = 50;
 
   const carregar = useCallback(
@@ -44,22 +45,30 @@ export default function Acesso() {
       setCarregando(true);
       setErro(null);
       try {
-        const query = buildQuery({
+        const common = {
           username: username || undefined,
+          estabelecimento: estabelecimento || undefined,
+          data_inicio: dataInicio || undefined,
+          data_fim: dataFim || undefined,
+        };
+        const query = buildQuery({
+          ...common,
           ip: ip || undefined,
           action: action || undefined,
           role: role || undefined,
-          estabelecimento: estabelecimento || undefined,
           status_code: statusCode || undefined,
-          data_inicio: dataInicio || undefined,
-          data_fim: dataFim || undefined,
           limit: String(pageSize),
           offset: String((pageToLoad - 1) * pageSize),
         });
-        const result = await api<AccessAuditPage>(`/admin/acesso${query}`);
+        const resumoQuery = buildQuery({ ...common, top: "50" });
+        const [result, summary] = await Promise.all([
+          api<AccessAuditPage>(`/admin/acesso${query}`),
+          api<AccessIpSummary>(`/admin/acesso/resumo${resumoQuery}`),
+        ]);
         setItems(result.items);
         setTotal(result.total);
         setPage(pageToLoad);
+        setResumo(summary);
         setJaPesquisou(true);
       } catch (err) {
         setErro(err instanceof Error ? err.message : "Erro ao carregar acessos");
@@ -84,6 +93,7 @@ export default function Acesso() {
     setItems([]);
     setTotal(0);
     setPage(1);
+    setResumo(null);
     setJaPesquisou(false);
     setErro(null);
   };
@@ -175,6 +185,63 @@ export default function Acesso() {
         </div>
         {erro ? <div className="alert-error">{erro}</div> : null}
       </div>
+
+      {resumo ? (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h2>Resumo de IPs</h2>
+              <p className="card-subtitle">
+                Agregado do período/filtros — sem precisar olhar linha a linha
+              </p>
+            </div>
+          </div>
+          <div className="resumo-ip-grid">
+            <div className="resumo-ip-stat">
+              <strong>{resumo.ips_unicos}</strong>
+              <span>IPs únicos</span>
+            </div>
+            <div className="resumo-ip-stat">
+              <strong>{resumo.total_acessos}</strong>
+              <span>Acessos / ações</span>
+            </div>
+            <div className="resumo-ip-stat">
+              <strong>{resumo.usuarios_unicos}</strong>
+              <span>Usuários distintos</span>
+            </div>
+          </div>
+          <div className="table-scroll" style={{ marginTop: 16 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>IP</th>
+                  <th>Acessos</th>
+                  <th>Último usuário</th>
+                  <th>Último acesso</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resumo.por_ip.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="empty">
+                      Nenhum IP no período.
+                    </td>
+                  </tr>
+                ) : (
+                  resumo.por_ip.map((row) => (
+                    <tr key={row.ip}>
+                      <td>{row.ip}</td>
+                      <td>{row.acessos}</td>
+                      <td>{row.ultimo_usuario ?? "—"}</td>
+                      <td>{formatDataHora(row.ultimo_acesso)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <div className="card card-table">
         <div className="card-header">

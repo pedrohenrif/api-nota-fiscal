@@ -172,3 +172,77 @@ def list_access_logs(
             for row in rows
         ],
     }
+
+
+def summarize_access_ips(
+    db: Session,
+    *,
+    data_inicio: Optional[Any] = None,
+    data_fim: Optional[Any] = None,
+    username: Optional[str] = None,
+    estabelecimento: Optional[str] = None,
+    top: int = 50,
+) -> dict[str, Any]:
+    """Resumo agregado: IPs unicos, acessos e ultimo usuario por IP."""
+    from sqlalchemy import cast, Date, distinct, func
+
+    query = db.query(AccessAuditLog)
+    if username:
+        query = query.filter(AccessAuditLog.username.ilike(f"%{username.strip()}%"))
+    if estabelecimento:
+        query = query.filter(
+            AccessAuditLog.estabelecimento.ilike(f"%{estabelecimento.strip()}%")
+        )
+    if data_inicio:
+        query = query.filter(cast(AccessAuditLog.created_at, Date) >= data_inicio)
+    if data_fim:
+        query = query.filter(cast(AccessAuditLog.created_at, Date) <= data_fim)
+
+    total_acessos = query.with_entities(func.count(AccessAuditLog.id)).scalar() or 0
+    ips_unicos = (
+        query.with_entities(func.count(distinct(AccessAuditLog.ip))).scalar() or 0
+    )
+    usuarios_unicos = (
+        query.with_entities(func.count(distinct(AccessAuditLog.username))).scalar() or 0
+    )
+
+    count_rows = (
+        query.with_entities(
+            AccessAuditLog.ip,
+            func.count(AccessAuditLog.id).label("acessos"),
+            func.max(AccessAuditLog.created_at).label("ultimo_acesso"),
+        )
+        .group_by(AccessAuditLog.ip)
+        .order_by(func.count(AccessAuditLog.id).desc())
+        .limit(min(max(top, 1), 200))
+        .all()
+    )
+
+    last_user_by_ip: dict[str, str | None] = {}
+    if count_rows:
+        latest_rows = (
+            query.with_entities(
+                AccessAuditLog.ip,
+                AccessAuditLog.username,
+                AccessAuditLog.created_at,
+            )
+            .distinct(AccessAuditLog.ip)
+            .order_by(AccessAuditLog.ip, AccessAuditLog.created_at.desc())
+            .all()
+        )
+        last_user_by_ip = {str(r.ip): r.username for r in latest_rows}
+
+    return {
+        "total_acessos": int(total_acessos),
+        "ips_unicos": int(ips_unicos),
+        "usuarios_unicos": int(usuarios_unicos),
+        "por_ip": [
+            {
+                "ip": row.ip,
+                "acessos": int(row.acessos),
+                "ultimo_acesso": row.ultimo_acesso,
+                "ultimo_usuario": last_user_by_ip.get(str(row.ip)),
+            }
+            for row in count_rows
+        ],
+    }
