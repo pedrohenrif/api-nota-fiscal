@@ -23,14 +23,26 @@ SELECT
 FROM nota_processamento
 """
 
-_ORDER_NR_SEQUENCIA_DESC = """
+_ORDER_BY = {
+    "nr_sequencia": """
 ORDER BY
   CASE
     WHEN nr_sequencia ~ '^[0-9]+$' THEN nr_sequencia::bigint
     ELSE NULL
   END DESC NULLS LAST,
   id DESC
-"""
+""",
+    "data_nf": """
+ORDER BY
+  data_nf DESC NULLS LAST,
+  id DESC
+""",
+}
+
+
+def _order_clause(ordenacao: str | None) -> str:
+    key = (ordenacao or "nr_sequencia").strip().lower()
+    return _ORDER_BY.get(key, _ORDER_BY["nr_sequencia"])
 
 
 def _build_filters(
@@ -85,12 +97,14 @@ def list_notas(
     erro_tipo: Optional[str] = None,
     data_nf_inicio: Optional[date] = None,
     data_nf_fim: Optional[date] = None,
+    ordenacao: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
 ) -> dict:
     page = max(int(page or 1), 1)
     page_size = min(max(int(page_size or 50), 1), 200)
     offset = (page - 1) * page_size
+    order_sql = _order_clause(ordenacao)
 
     conditions, params = _build_filters(
         estabelecimento=estabelecimento,
@@ -113,9 +127,7 @@ def list_notas(
     params_page = {**params, "limit": page_size, "offset": offset}
     rows = (
         db.execute(
-            text(
-                f"{_BASE_SELECT}{where} {_ORDER_NR_SEQUENCIA_DESC} LIMIT :limit OFFSET :offset"
-            ),
+            text(f"{_BASE_SELECT}{where} {order_sql} LIMIT :limit OFFSET :offset"),
             params_page,
         )
         .mappings()
@@ -137,12 +149,14 @@ def list_logs(
     status: Optional[str] = None,
     erro_tipo: Optional[str] = None,
     somente_erro: bool = True,
+    ordenacao: Optional[str] = None,
     page: int = 1,
     page_size: int = 50,
 ) -> dict:
     page = max(int(page or 1), 1)
     page_size = min(max(int(page_size or 50), 1), 200)
     offset = (page - 1) * page_size
+    order_sql = _order_clause(ordenacao)
 
     conditions, params = _build_filters(
         estabelecimento=estabelecimento,
@@ -163,9 +177,7 @@ def list_logs(
     params_page = {**params, "limit": page_size, "offset": offset}
     rows = (
         db.execute(
-            text(
-                f"{_BASE_SELECT}{where} {_ORDER_NR_SEQUENCIA_DESC} LIMIT :limit OFFSET :offset"
-            ),
+            text(f"{_BASE_SELECT}{where} {order_sql} LIMIT :limit OFFSET :offset"),
             params_page,
         )
         .mappings()

@@ -25,6 +25,8 @@ export interface NotaStatus {
   updated_at?: string | null;
 }
 
+export type NotaOrdenacao = "nr_sequencia" | "data_nf";
+
 export interface NotaFilters {
   nf?: string;
   nr_sequencia?: string;
@@ -33,7 +35,13 @@ export interface NotaFilters {
   erro_tipo?: string;
   data_nf_inicio?: string;
   data_nf_fim?: string;
+  ordenacao?: NotaOrdenacao;
 }
+
+export const NOTA_ORDENACAO_OPTIONS = [
+  { value: "nr_sequencia", label: "NR Sequência (maior → menor)" },
+  { value: "data_nf", label: "Data NF (mais recente)" },
+] as const;
 
 export interface NotaStatusPage {
   items: NotaStatus[];

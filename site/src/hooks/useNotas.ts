@@ -9,10 +9,11 @@ interface UseNotasOptions {
 }
 
 const PAGE_SIZE = 50;
+const DEFAULT_FILTROS: NotaFilters = { ordenacao: "nr_sequencia" };
 
 export function useNotas({ estabelecimento, isAdmin }: UseNotasOptions) {
   const [notas, setNotas] = useState<NotaStatus[]>([]);
-  const [filtros, setFiltros] = useState<NotaFilters>({});
+  const [filtros, setFiltros] = useState<NotaFilters>(DEFAULT_FILTROS);
   const [filtrosAbertos, setFiltrosAbertos] = useState(true);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function useNotas({ estabelecimento, isAdmin }: UseNotasOptions) {
           erro_tipo: ativos.erro_tipo,
           data_nf_inicio: ativos.data_nf_inicio,
           data_nf_fim: ativos.data_nf_fim,
+          ordenacao: ativos.ordenacao || "nr_sequencia",
           page: String(pageToLoad),
           page_size: String(pageSize),
         });
@@ -62,15 +64,19 @@ export function useNotas({ estabelecimento, isAdmin }: UseNotasOptions) {
 
   const aplicarFiltros = useCallback(
     (novos: NotaFilters) => {
-      setFiltros(novos);
+      const normalizados: NotaFilters = {
+        ...novos,
+        ordenacao: novos.ordenacao || "nr_sequencia",
+      };
+      setFiltros(normalizados);
       setPage(1);
-      void carregarNotas(novos, 1);
+      void carregarNotas(normalizados, 1);
     },
     [carregarNotas]
   );
 
   const limparFiltros = useCallback(() => {
-    setFiltros({});
+    setFiltros(DEFAULT_FILTROS);
     setNotas([]);
     setTotal(0);
     setTotalPages(0);

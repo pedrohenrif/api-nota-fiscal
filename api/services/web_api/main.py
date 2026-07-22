@@ -394,6 +394,7 @@ def listar_notas(
     erro_tipo: str | None = None,
     data_nf_inicio: date | None = None,
     data_nf_fim: date | None = None,
+    ordenacao: str | None = "nr_sequencia",
     page: int = 1,
     page_size: int = 50,
     current_user: Usuario = Depends(get_current_user),
@@ -413,6 +414,7 @@ def listar_notas(
         erro_tipo=erro_tipo,
         data_nf_inicio=data_nf_inicio,
         data_nf_fim=data_nf_fim,
+        ordenacao=ordenacao,
         page=page,
         page_size=page_size,
     )

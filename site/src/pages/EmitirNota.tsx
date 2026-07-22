@@ -144,7 +144,8 @@ export default function EmitirNota() {
           <div>
             <h2>Notas processadas</h2>
             <p className="card-subtitle">
-              Use os filtros e clique em Aplicar para carregar. Ordenação: nr_sequencia DESC.
+              Use os filtros e clique em Aplicar para carregar. Escolha ordenar por NR Sequência ou
+              Data NF.
             </p>
           </div>
           <button

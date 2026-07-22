@@ -552,9 +552,68 @@ select:focus {
   font-size: 14px;
 }
 
-/* Table actions */
-.actions-cell {
+/* Table scroll + sticky actions */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.table-notas {
+  min-width: 1180px;
+}
+
+.table-notas .cell-nf,
+.table-notas .cell-seq {
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-notas .cell-fornecedor {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-notas .cell-date,
+.table-notas .cell-estab,
+.table-notas .cell-tent {
+  white-space: nowrap;
+}
+
+.table-notas .erro-cell,
+.table-notas .pr-success-cell {
+  max-width: 280px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.actions-col,
+.actions-cell {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  white-space: nowrap;
+  text-align: center;
+  min-width: 110px;
+  width: 110px;
+  background: var(--surface);
+  box-shadow: -6px 0 10px rgba(46, 46, 46, 0.06);
+}
+
+.table-notas thead .actions-col {
+  background: var(--surface-warm);
+  z-index: 3;
+}
+
+.table-notas tbody tr:hover .actions-cell {
+  background: #faf4f5;
 }
 
 .actions-muted {
@@ -566,13 +625,18 @@ select:focus {
   background: var(--primary-soft);
   color: var(--brand-dark);
   border: 1px solid rgba(145, 61, 76, 0.25);
-  padding: 6px 14px;
-  border-radius: 999px;
+  padding: 7px 12px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  min-width: 88px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-table:hover:not(:disabled) {

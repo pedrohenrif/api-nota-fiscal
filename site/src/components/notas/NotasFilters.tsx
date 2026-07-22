@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { NotaFilters } from "../../types";
-import { ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../../types";
+import type { NotaFilters, NotaOrdenacao } from "../../types";
+import { ERRO_TIPO_OPTIONS, NOTA_ORDENACAO_OPTIONS, NOTA_STATUS_OPTIONS } from "../../types";
 import { countActiveFilters, filterSummary } from "../../lib/filters";
 
 interface NotasFiltersProps {
@@ -60,8 +60,8 @@ export default function NotasFilters({
       {aberto ? (
         <div className="filters-panel">
           <p className="filters-intro">
-            Defina os filtros e clique em Aplicar para carregar a lista (ordenada por nr_sequencia
-            decrescente). A página não busca notas automaticamente ao abrir.
+            Defina os filtros, escolha a ordenação e clique em Aplicar. A página não busca notas
+            automaticamente ao abrir.
           </p>
           <div className="filters-grid">
             <label className="filter-field">
@@ -109,6 +109,19 @@ export default function NotasFilters({
               >
                 {ERRO_TIPO_OPTIONS.map((opt) => (
                   <option key={opt.value || "all-erro"} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-field">
+              <span className="filter-label">Ordenar por</span>
+              <select
+                value={draft.ordenacao ?? "nr_sequencia"}
+                onChange={(e) => update("ordenacao", e.target.value as NotaOrdenacao)}
+              >
+                {NOTA_ORDENACAO_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
                 ))}
