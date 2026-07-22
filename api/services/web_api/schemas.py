@@ -204,3 +204,24 @@ class DestinatarioCreate(BaseModel):
 
 class DestinatarioUpdate(BaseModel):
     email: str = Field(min_length=3, max_length=255)
+
+
+class DashboardKpisOut(BaseModel):
+    total: int
+    sent: int
+    retry_pending: int
+    dead_letter: int
+    pending: int
+    com_erro: int
+    taxa_sucesso_pct: float
+    taxa_erro_pct: float
+
+
+class DashboardResumoOut(BaseModel):
+    filtros: dict
+    kpis: DashboardKpisOut
+    por_status: list[dict]
+    por_erro_tipo: list[dict]
+    por_estabelecimento: list[dict]
+    serie_diaria: list[dict]
+    recentes_com_erro: list[NotaStatusOut]

@@ -14,6 +14,28 @@ export default function Ajuda() {
 
       <div className="help-sections">
         <section className="card help-card">
+          <h2>Dashboard</h2>
+          <ul>
+            <li>
+              Mostra KPIs da integração: total, enviadas com sucesso, retry, dead letter e taxas.
+            </li>
+            <li>
+              Dimensione erros por tipo (sem de-para, sem lote, retorno PR) e acompanhe a evolução
+              diária.
+            </li>
+            <li>
+              Use <strong>Exportar CSV</strong> para baixar o relatório completo das notas do
+              período (abre no Excel).
+            </li>
+            {!isAdmin ? (
+              <li>Usuário comum vê apenas os dados do próprio estabelecimento.</li>
+            ) : (
+              <li>Admin pode filtrar por unidade ou ver todas.</li>
+            )}
+          </ul>
+        </section>
+
+        <section className="card help-card">
           <h2>Emitir Nota</h2>
           <ul>
             <li>

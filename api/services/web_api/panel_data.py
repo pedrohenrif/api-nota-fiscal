@@ -197,3 +197,225 @@ def get_nota_by_id(db: Session, nota_id: int) -> dict | None:
     sql = _BASE_SELECT + " WHERE id = :id LIMIT 1"
     row = db.execute(text(sql), {"id": nota_id}).mappings().first()
     return dict(row) if row else None
+
+
+def _dashboard_where(
+    *,
+    estabelecimento: Optional[str] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    usar_data_nf: bool = False,
+) -> tuple[str, dict]:
+    conditions: list[str] = []
+    params: dict = {}
+    if estabelecimento:
+        conditions.append("estabelecimento = :estabelecimento")
+        params["estabelecimento"] = estabelecimento
+    date_col = "data_nf" if usar_data_nf else "updated_at"
+    if data_inicio:
+        conditions.append(f"DATE({date_col}) >= :data_inicio")
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        conditions.append(f"DATE({date_col}) <= :data_fim")
+        params["data_fim"] = data_fim
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    return where, params
+
+
+def dashboard_resumo(
+    db: Session,
+    *,
+    estabelecimento: Optional[str] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    usar_data_nf: bool = False,
+) -> dict:
+    where, params = _dashboard_where(
+        estabelecimento=estabelecimento,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        usar_data_nf=usar_data_nf,
+    )
+
+    total = int(
+        db.execute(
+            text(f"SELECT COUNT(*) FROM nota_processamento{where}"), params
+        ).scalar()
+        or 0
+    )
+
+    por_status_rows = db.execute(
+        text(
+            f"""
+            SELECT status, COUNT(*) AS qtd
+            FROM nota_processamento
+            {where}
+            GROUP BY status
+            ORDER BY qtd DESC
+            """
+        ),
+        params,
+    ).mappings().all()
+    por_status = {str(r["status"]): int(r["qtd"]) for r in por_status_rows}
+
+    sent = int(por_status.get("sent", 0))
+    retry = int(por_status.get("retry_pending", 0))
+    dead = int(por_status.get("dead_letter", 0))
+    pending = int(por_status.get("pending", 0))
+    com_erro = retry + dead
+    taxa_sucesso = round((sent / total) * 100, 1) if total else 0.0
+    taxa_erro = round((com_erro / total) * 100, 1) if total else 0.0
+
+    erro_where = where + (" AND " if where else " WHERE ") + "erro_tipo IS NOT NULL"
+    por_erro_rows = db.execute(
+        text(
+            f"""
+            SELECT erro_tipo, COUNT(*) AS qtd
+            FROM nota_processamento
+            {erro_where}
+            GROUP BY erro_tipo
+            ORDER BY qtd DESC
+            """
+        ),
+        params,
+    ).mappings().all()
+    por_erro_tipo = [
+        {"erro_tipo": str(r["erro_tipo"]), "qtd": int(r["qtd"])} for r in por_erro_rows
+    ]
+
+    por_estab_rows = db.execute(
+        text(
+            f"""
+            SELECT
+              estabelecimento,
+              COUNT(*) AS total,
+              COUNT(*) FILTER (WHERE status = 'sent') AS sent,
+              COUNT(*) FILTER (WHERE status = 'retry_pending') AS retry_pending,
+              COUNT(*) FILTER (WHERE status = 'dead_letter') AS dead_letter,
+              COUNT(*) FILTER (WHERE status = 'pending') AS pending
+            FROM nota_processamento
+            {where}
+            GROUP BY estabelecimento
+            ORDER BY total DESC
+            """
+        ),
+        params,
+    ).mappings().all()
+    por_estabelecimento = [dict(r) for r in por_estab_rows]
+
+    date_col = "data_nf" if usar_data_nf else "updated_at"
+    serie_rows = db.execute(
+        text(
+            f"""
+            SELECT
+              DATE({date_col}) AS dia,
+              COUNT(*) FILTER (WHERE status = 'sent') AS sent,
+              COUNT(*) FILTER (
+                WHERE status IN ('retry_pending', 'dead_letter')
+              ) AS erros,
+              COUNT(*) AS total
+            FROM nota_processamento
+            {where}
+            GROUP BY DATE({date_col})
+            ORDER BY dia DESC NULLS LAST
+            LIMIT 30
+            """
+        ),
+        params,
+    ).mappings().all()
+    serie_diaria = [
+        {
+            "dia": str(r["dia"]) if r["dia"] is not None else None,
+            "sent": int(r["sent"] or 0),
+            "erros": int(r["erros"] or 0),
+            "total": int(r["total"] or 0),
+        }
+        for r in reversed(list(serie_rows))
+    ]
+
+    recentes_erro_where = (
+        where
+        + (" AND " if where else " WHERE ")
+        + "status IN ('retry_pending', 'dead_letter')"
+    )
+    recentes_rows = db.execute(
+        text(
+            f"""
+            {_BASE_SELECT}
+            {recentes_erro_where}
+            ORDER BY updated_at DESC NULLS LAST, id DESC
+            LIMIT 15
+            """
+        ),
+        params,
+    ).mappings().all()
+
+    return {
+        "filtros": {
+            "estabelecimento": estabelecimento,
+            "data_inicio": data_inicio.isoformat() if data_inicio else None,
+            "data_fim": data_fim.isoformat() if data_fim else None,
+            "usar_data_nf": usar_data_nf,
+        },
+        "kpis": {
+            "total": total,
+            "sent": sent,
+            "retry_pending": retry,
+            "dead_letter": dead,
+            "pending": pending,
+            "com_erro": com_erro,
+            "taxa_sucesso_pct": taxa_sucesso,
+            "taxa_erro_pct": taxa_erro,
+        },
+        "por_status": [
+            {"status": k, "qtd": v} for k, v in sorted(por_status.items(), key=lambda x: -x[1])
+        ],
+        "por_erro_tipo": por_erro_tipo,
+        "por_estabelecimento": por_estabelecimento,
+        "serie_diaria": serie_diaria,
+        "recentes_com_erro": [dict(r) for r in recentes_rows],
+    }
+
+
+def list_notas_export(
+    db: Session,
+    *,
+    estabelecimento: Optional[str] = None,
+    status: Optional[str] = None,
+    erro_tipo: Optional[str] = None,
+    data_inicio: Optional[date] = None,
+    data_fim: Optional[date] = None,
+    usar_data_nf: bool = False,
+    limit: int = 10000,
+) -> list[dict]:
+    conditions, params = _build_filters(
+        estabelecimento=estabelecimento,
+        status=status,
+        erro_tipo=erro_tipo,
+    )
+    date_col = "data_nf" if usar_data_nf else "updated_at"
+    if data_inicio:
+        conditions.append(f"DATE({date_col}) >= :data_inicio")
+        params["data_inicio"] = data_inicio
+    if data_fim:
+        conditions.append(f"DATE({date_col}) <= :data_fim")
+        params["data_fim"] = data_fim
+
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+    params["limit"] = min(max(int(limit or 10000), 1), 50000)
+    rows = (
+        db.execute(
+            text(
+                f"""
+                {_BASE_SELECT}
+                {where}
+                ORDER BY updated_at DESC NULLS LAST, id DESC
+                LIMIT :limit
+                """
+            ),
+            params,
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]

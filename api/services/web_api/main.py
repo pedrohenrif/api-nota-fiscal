@@ -1,8 +1,11 @@
-import httpx
-from datetime import date
+import csv
+import io
+from datetime import date, datetime
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from services.web_api import panel_data, repository
@@ -43,6 +46,7 @@ from services.web_api.models import Usuario
 from services.web_api.schemas import (
     AccessAuditPageOut,
     AccessIpSummaryOut,
+    DashboardResumoOut,
     DestinatarioCreate,
     DestinatarioOut,
     DestinatarioUpdate,
@@ -195,6 +199,103 @@ def estabelecimentos(current_user: Usuario = Depends(get_current_user)) -> list[
     if current_user.role == "adm":
         return ESTABELECIMENTOS
     return [current_user.estabelecimento] if current_user.estabelecimento else []
+
+
+def _resolve_estab_filter(
+    current_user: Usuario, estabelecimento: str | None
+) -> str | None:
+    if current_user.role == "adm":
+        return estabelecimento
+    return current_user.estabelecimento
+
+
+@app.get("/dashboard/resumo", response_model=DashboardResumoOut)
+def dashboard_resumo(
+    estabelecimento: str | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    usar_data_nf: bool = False,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    target = _resolve_estab_filter(current_user, estabelecimento)
+    if current_user.role != "adm" and not target:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sem estabelecimento vinculado",
+        )
+    return panel_data.dashboard_resumo(
+        db,
+        estabelecimento=target,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        usar_data_nf=usar_data_nf,
+    )
+
+
+@app.get("/dashboard/export")
+def dashboard_export(
+    estabelecimento: str | None = None,
+    status: str | None = None,
+    erro_tipo: str | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    usar_data_nf: bool = False,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    target = _resolve_estab_filter(current_user, estabelecimento)
+    if current_user.role != "adm" and not target:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sem estabelecimento vinculado",
+        )
+    rows = panel_data.list_notas_export(
+        db,
+        estabelecimento=target,
+        status=status,
+        erro_tipo=erro_tipo,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        usar_data_nf=usar_data_nf,
+    )
+    headers = [
+        "id",
+        "estabelecimento",
+        "nf",
+        "nr_sequencia",
+        "fornecedor",
+        "data_nf",
+        "status",
+        "tentativas",
+        "erro_tipo",
+        "erro",
+        "pr_id",
+        "pr_mensagem",
+        "created_at",
+        "updated_at",
+    ]
+
+    def _cell(value):
+        if value is None:
+            return ""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value).replace("\r", " ").replace("\n", " ")
+
+    buffer = io.StringIO()
+    buffer.write("\ufeff")  # BOM para Excel
+    writer = csv.writer(buffer, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow([_cell(row.get(col)) for col in headers])
+
+    filename = f"relatorio_notas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/usuarios", response_model=list[UsuarioOut])
