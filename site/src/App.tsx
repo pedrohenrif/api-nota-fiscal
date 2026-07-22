@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import Acesso from "./pages/Acesso";
 import Configuracoes from "./pages/Configuracoes";
 import EmitirNota from "./pages/EmitirNota";
 import Login from "./pages/Login";
@@ -37,6 +38,16 @@ export default function App() {
           <ProtectedRoute adminOnly>
             <Layout>
               <Logs />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/acesso"
+        element={
+          <ProtectedRoute adminOnly>
+            <Layout>
+              <Acesso />
             </Layout>
           </ProtectedRoute>
         }

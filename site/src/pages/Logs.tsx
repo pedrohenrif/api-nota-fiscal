@@ -1,10 +1,13 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import NotaDetalheModal from "../components/notas/NotaDetalheModal";
+import Pagination from "../components/Pagination";
 import { formatDataHora, buildQuery } from "../lib/format";
 import { formatRetornoPr } from "../lib/notas";
-import type { NotaStatus } from "../types";
+import type { NotaStatus, NotaStatusPage } from "../types";
 import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
+
+const PAGE_SIZE = 50;
 
 export default function Logs() {
   const [logs, setLogs] = useState<NotaStatus[]>([]);
@@ -17,26 +20,39 @@ export default function Logs() {
   const [erro, setErro] = useState<string | null>(null);
   const [notaSelecionada, setNotaSelecionada] = useState<NotaStatus | null>(null);
   const [expandidoId, setExpandidoId] = useState<number | null>(null);
+  const [jaPesquisou, setJaPesquisou] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const carregarLogs = useCallback(async () => {
-    setCarregando(true);
-    setErro(null);
-    try {
-      const query = buildQuery({
-        estabelecimento: estabelecimento || undefined,
-        status: status || undefined,
-        erro_tipo: erroTipo || undefined,
-        somente_erro: somenteErro ? "true" : "false",
-        limit: "100",
-      });
-      const lista = await api<NotaStatus[]>(`/admin/logs${query}`);
-      setLogs(lista);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao carregar logs");
-    } finally {
-      setCarregando(false);
-    }
-  }, [estabelecimento, erroTipo, somenteErro, status]);
+  const carregarLogs = useCallback(
+    async (pageOverride?: number) => {
+      const pageToLoad = pageOverride ?? page;
+      setCarregando(true);
+      setErro(null);
+      try {
+        const query = buildQuery({
+          estabelecimento: estabelecimento || undefined,
+          status: status || undefined,
+          erro_tipo: erroTipo || undefined,
+          somente_erro: somenteErro ? "true" : "false",
+          page: String(pageToLoad),
+          page_size: String(PAGE_SIZE),
+        });
+        const result = await api<NotaStatusPage>(`/admin/logs${query}`);
+        setLogs(result.items);
+        setTotal(result.total);
+        setPage(result.page);
+        setTotalPages(result.total_pages);
+        setJaPesquisou(true);
+      } catch (err) {
+        setErro(err instanceof Error ? err.message : "Erro ao carregar logs");
+      } finally {
+        setCarregando(false);
+      }
+    },
+    [estabelecimento, erroTipo, page, somenteErro, status]
+  );
 
   useEffect(() => {
     api<string[]>("/estabelecimentos")
@@ -44,23 +60,16 @@ export default function Logs() {
       .catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    void carregarLogs();
-  }, [carregarLogs]);
-
   const toggleExpandir = (id: number) => {
     setExpandidoId((atual) => (atual === id ? null : id));
   };
 
   return (
     <div className="page">
-      <h1>Logs técnicos</h1>
-      <p className="page-subtitle">
-        Histórico de processamento e erros detalhados — acesso restrito a administradores.
-      </p>
+      <h1>Logs de processamento</h1>
 
       <div className="card">
-        <div className="logs-filters">
+        <div className="row logs-filters">
           <label>
             Estabelecimento
             <select value={estabelecimento} onChange={(e) => setEstabelecimento(e.target.value)}>
@@ -104,33 +113,29 @@ export default function Logs() {
             Somente com erro
           </label>
 
-          <button className="btn-primary" type="button" onClick={() => void carregarLogs()}>
-            {carregando ? "Atualizando..." : "Atualizar"}
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => {
+              setPage(1);
+              void carregarLogs(1);
+            }}
+          >
+            {carregando ? "Atualizando..." : "Pesquisar"}
           </button>
         </div>
-
         {erro ? <div className="alert-error">{erro}</div> : null}
       </div>
 
       <div className="card card-table">
-        <div className="card-header">
-          <div>
-            <h2>Eventos recentes</h2>
-            <p className="card-subtitle">
-              {logs.length} registro(s) — clique na linha para detalhes da nota ou no erro para
-              expandir
-            </p>
-          </div>
-        </div>
-
-        <div className="logs-table-wrap">
-          <table className="table table-logs">
+        <div className="table-wrap">
+          <table>
             <thead>
               <tr>
                 <th>Atualizado</th>
                 <th>NF</th>
-                <th>Seq</th>
-                <th>Estab.</th>
+                <th>Seq.</th>
+                <th>Estabelecimento</th>
                 <th>Status</th>
                 <th>Tipo erro</th>
                 <th>Tent.</th>
@@ -142,6 +147,12 @@ export default function Logs() {
                 <tr>
                   <td colSpan={8} className="empty">
                     Carregando...
+                  </td>
+                </tr>
+              ) : !jaPesquisou ? (
+                <tr>
+                  <td colSpan={8} className="empty">
+                    Defina os filtros e clique em Pesquisar.
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
@@ -183,9 +194,7 @@ export default function Logs() {
                           className={
                             retorno.kind === "success"
                               ? "pr-success-cell log-erro-cell"
-                              : retorno.kind === "error"
-                                ? "log-erro-cell"
-                                : "log-erro-cell"
+                              : "log-erro-cell"
                           }
                           onClick={(e) => {
                             if (retorno.kind !== "error") return;
@@ -215,6 +224,15 @@ export default function Logs() {
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          disabled={carregando || !jaPesquisou}
+          onChange={(p) => void carregarLogs(p)}
+        />
       </div>
 
       <NotaDetalheModal nota={notaSelecionada} onClose={() => setNotaSelecionada(null)} />

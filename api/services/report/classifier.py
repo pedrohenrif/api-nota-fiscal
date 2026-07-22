@@ -21,6 +21,7 @@ from services.extractor.sql_templates import build_header_notes_sql
 from services.processor.config import build_pr_auth_headers, get_pr_config
 from services.processor.depara import check_product_depara
 from services.report.config import REPORT_LOOKBACK_MINUTES, USE_MOCK_ORACLE
+from services.report.report_sent import filter_unreported
 
 
 def _oracle_client():
@@ -148,6 +149,10 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
         if seq in valor_by_seq:
             item["valor_total"] = valor_by_seq[seq]
 
+    # Integradas / erros PR: so entram no e-mail uma vez (apos o primeiro envio).
+    integradas = filter_unreported(estabelecimento, "integradas", integradas)
+    erros_pr = filter_unreported(estabelecimento, "erros_pr", erros_pr)
+
     nao_integradas: list[dict[str, Any]] = []
     sem_depara: list[dict[str, Any]] = []
     sem_lote: list[dict[str, Any]] = []
@@ -192,6 +197,8 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
                 if not has_lote:
                     itens_sem_lote.append(f"Item {nr_item} (material {cod}) sem lote")
 
+            # Prioridade exclusiva: sem de-para > sem lote > nao integrada.
+            # Evita a mesma nota aparecer em mais de uma secao do e-mail.
             if itens_sem_depara:
                 sem_depara.append(
                     {
@@ -202,7 +209,7 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
                         "descricoes": desc_sem_depara,
                     }
                 )
-            if itens_sem_lote:
+            elif itens_sem_lote:
                 for msg in itens_sem_lote:
                     sem_lote.append(
                         {
@@ -211,9 +218,7 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
                             "inconsistencia": msg,
                         }
                     )
-
-            # Sem de-para ou sem lote bloqueiam; demais entram como nao integradas.
-            if not itens_sem_depara and not itens_sem_lote:
+            else:
                 nao_integradas.append(
                     {
                         "nr_sequencia": nr_sequencia,
@@ -221,6 +226,8 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
                         "valor_total": valor,
                     }
                 )
+
+    nao_integradas = filter_unreported(estabelecimento, "nao_integradas", nao_integradas)
 
     return {
         "estabelecimento": estabelecimento,

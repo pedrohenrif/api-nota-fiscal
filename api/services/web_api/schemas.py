@@ -143,3 +143,33 @@ class EstabelecimentoConfigUpdate(BaseModel):
 
 class EnviarRelatorioRequest(BaseModel):
     estabelecimento: str
+
+
+class NotaStatusPageOut(BaseModel):
+    items: list[NotaStatusOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AccessAuditLogOut(BaseModel):
+    id: int
+    created_at: Optional[datetime] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
+    estabelecimento: Optional[str] = None
+    ip: str
+    method: str
+    path: str
+    action: str
+    status_code: int
+    detail: Optional[str] = None
+    user_agent: Optional[str] = None
+
+
+class AccessAuditPageOut(BaseModel):
+    items: list[AccessAuditLogOut]
+    total: int
+    limit: int
+    offset: int

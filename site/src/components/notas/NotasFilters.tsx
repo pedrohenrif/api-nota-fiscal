@@ -60,7 +60,8 @@ export default function NotasFilters({
       {aberto ? (
         <div className="filters-panel">
           <p className="filters-intro">
-            Refine a lista por qualquer combinação de campos abaixo.
+            Defina os filtros e clique em Aplicar para carregar a lista (ordenada por nr_sequencia
+            decrescente). A página não busca notas automaticamente ao abrir.
           </p>
           <div className="filters-grid">
             <label className="filter-field">

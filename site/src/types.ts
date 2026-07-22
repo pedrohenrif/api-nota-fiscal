@@ -35,6 +35,36 @@ export interface NotaFilters {
   data_nf_fim?: string;
 }
 
+export interface NotaStatusPage {
+  items: NotaStatus[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface AccessAuditLog {
+  id: number;
+  created_at?: string | null;
+  username?: string | null;
+  role?: string | null;
+  estabelecimento?: string | null;
+  ip: string;
+  method: string;
+  path: string;
+  action: string;
+  status_code: number;
+  detail?: string | null;
+  user_agent?: string | null;
+}
+
+export interface AccessAuditPage {
+  items: AccessAuditLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface NotaConsulta {
   encontrada: boolean;
   valido: boolean;

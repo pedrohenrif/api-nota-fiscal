@@ -7,6 +7,7 @@ from services.common.estab_config import list_report_enabled
 from services.report.classifier import classify_estabelecimento, has_report_content
 from services.report.config import get_recipients
 from services.report.email_html import build_report_html
+from services.report.report_sent import ensure_report_sent_table, mark_report_sent
 from services.report.smtp_client import send_html_email
 
 
@@ -15,6 +16,7 @@ def run_report_for_estabelecimento(
     *,
     force_send: bool = False,
 ) -> dict[str, Any]:
+    ensure_report_sent_table()
     report = classify_estabelecimento(estabelecimento)
     recipients = get_recipients(estabelecimento)
 
@@ -49,10 +51,12 @@ def run_report_for_estabelecimento(
     send_result = send_html_email(
         subject=subject, html_body=html, recipients=recipients
     )
+    marcados = mark_report_sent(estabelecimento, report)
     return {
         "estabelecimento": estabelecimento,
         "enviado": True,
         "totais": report["totais"],
+        "marcados_envio_unico": marcados,
         "destinatarios": send_result["destinatarios"],
         "remetente": send_result["remetente"],
     }

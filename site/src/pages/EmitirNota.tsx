@@ -5,6 +5,7 @@ import EmitirEspecificaModal from "../components/notas/EmitirEspecificaModal";
 import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import NotasFilters from "../components/notas/NotasFilters";
 import NotasTable from "../components/notas/NotasTable";
+import Pagination from "../components/Pagination";
 import { useNotas } from "../hooks/useNotas";
 import { reemitirNota } from "../lib/notas";
 import type { NotaStatus } from "../types";
@@ -32,6 +33,12 @@ export default function EmitirNota() {
     carregarNotas,
     aplicarFiltros,
     limparFiltros,
+    jaPesquisou,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    irParaPagina,
   } = useNotas({ estabelecimento: selecionado, isAdmin });
 
   useEffect(() => {
@@ -42,10 +49,6 @@ export default function EmitirNota() {
       })
       .catch((err) => setErro(err instanceof Error ? err.message : "Erro"));
   }, [setErro]);
-
-  useEffect(() => {
-    if (selecionado || !isAdmin) void carregarNotas();
-  }, [carregarNotas, isAdmin, selecionado]);
 
   const emitirPendentes = async () => {
     setErro(null);
@@ -61,7 +64,7 @@ export default function EmitirNota() {
       setMensagem(
         `Extração acionada para ${result.estabelecimento}. ${qtd} nota(s) pendente(s) publicada(s) na fila.`
       );
-      await carregarNotas();
+      if (jaPesquisou) await carregarNotas();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao emitir");
     } finally {
@@ -78,7 +81,7 @@ export default function EmitirNota() {
       setMensagem(
         `Nota NF ${nota.nf} (seq. ${nota.nr_sequencia}) reenviada para processamento.`
       );
-      await carregarNotas();
+      if (jaPesquisou) await carregarNotas();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao reemitir nota");
     } finally {
@@ -95,7 +98,13 @@ export default function EmitirNota() {
           {isAdmin ? (
             <label>
               Estabelecimento
-              <select value={selecionado} onChange={(e) => setSelecionado(e.target.value)}>
+              <select
+                value={selecionado}
+                onChange={(e) => {
+                  setSelecionado(e.target.value);
+                  limparFiltros();
+                }}
+              >
                 {estabelecimentos.map((est) => (
                   <option key={est} value={est}>
                     {est}
@@ -133,13 +142,16 @@ export default function EmitirNota() {
       <div className="card card-table">
         <div className="card-header">
           <div>
-            <h2>Notas recentes</h2>
+            <h2>Notas processadas</h2>
             <p className="card-subtitle">
-              Histórico de processamento e status de envio ao PR — clique em uma linha para ver
-              detalhes
+              Use os filtros e clique em Aplicar para carregar. Ordenação: nr_sequencia DESC.
             </p>
           </div>
-          <button className="btn-ghost" onClick={() => void carregarNotas()}>
+          <button
+            className="btn-ghost"
+            disabled={!jaPesquisou || carregando}
+            onClick={() => void carregarNotas()}
+          >
             Atualizar
           </button>
         </div>
@@ -156,8 +168,22 @@ export default function EmitirNota() {
           notas={notas}
           carregando={carregando}
           reemitindoId={reemitindoId}
+          emptyMessage={
+            jaPesquisou
+              ? "Nenhuma nota encontrada."
+              : "Aplique um filtro para carregar as notas."
+          }
           onReemitir={(nota) => void handleReemitir(nota)}
           onSelectNota={setNotaSelecionada}
+        />
+
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
+          disabled={carregando || !jaPesquisou}
+          onChange={irParaPagina}
         />
       </div>
 
@@ -165,7 +191,9 @@ export default function EmitirNota() {
         open={modalAberto}
         estabelecimento={isAdmin ? selecionado : (user?.estabelecimento ?? "")}
         onClose={() => setModalAberto(false)}
-        onSuccess={() => void carregarNotas()}
+        onSuccess={() => {
+          if (jaPesquisou) void carregarNotas();
+        }}
       />
 
       <NotaDetalheModal nota={notaSelecionada} onClose={() => setNotaSelecionada(null)} />

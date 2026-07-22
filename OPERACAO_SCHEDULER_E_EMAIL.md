@@ -189,13 +189,15 @@ Se a conta principal falhar na autenticacao, o servico tenta a de contingencia u
 
 Relatorio HTML por estabelecimento, com secoes (vazias sao omitidas):
 
-1. **Notas integradas** — `status=sent` no middleware no periodo (`REPORT_LOOKBACK_MINUTES`, padrao 30)
-2. **Notas nao integradas** — elegiveis no Tasy e ainda sem envio com sucesso
-3. **Sem de-para** — itens sem vinculo no PR
-4. **Sem lote** — itens sem lote
-5. **Erros PR** — `dead_letter` / `retry_pending` recentes
+1. **Notas integradas** — `status=sent` no periodo (`REPORT_LOOKBACK_MINUTES`); **enviada uma unica vez** (tabela `nota_report_envio`)
+2. **Notas nao integradas** — elegiveis no Tasy sem bloqueio de de-para/lote; **enviada uma unica vez**
+3. **Sem de-para** — itens sem vinculo no PR; **pode repetir** a cada ciclo ate resolver
+4. **Sem lote** — itens sem lote; **pode repetir** a cada ciclo ate resolver
+5. **Erros PR** — `dead_letter` / `retry_pending` recentes; **enviado uma unica vez** por nota/categoria
 
-No modo automatico, se nao houver nenhuma ocorrencia, **o e-mail nao e enviado**.
+A mesma nota nao entra em mais de uma secao Oracle (prioridade: sem de-para > sem lote > nao integrada).
+
+No modo automatico, se nao houver nenhuma ocorrencia nova, **o e-mail nao e enviado**.
 
 ---
 

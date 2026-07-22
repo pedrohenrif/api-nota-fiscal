@@ -7,6 +7,7 @@ interface NotasTableProps {
   notas: NotaStatus[];
   carregando?: boolean;
   reemitindoId?: number | null;
+  emptyMessage?: string;
   onReemitir?: (nota: NotaStatus) => void;
   onSelectNota?: (nota: NotaStatus) => void;
 }
@@ -15,6 +16,7 @@ export default function NotasTable({
   notas,
   carregando,
   reemitindoId,
+  emptyMessage = "Nenhuma nota encontrada.",
   onReemitir,
   onSelectNota,
 }: NotasTableProps) {
@@ -44,7 +46,7 @@ export default function NotasTable({
         ) : notas.length === 0 ? (
           <tr>
             <td colSpan={10} className="empty">
-              Nenhuma nota encontrada.
+              {emptyMessage}
             </td>
           </tr>
         ) : (

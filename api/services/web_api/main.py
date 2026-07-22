@@ -1,6 +1,7 @@
 import httpx
 from datetime import date
-from fastapi import Depends, FastAPI, HTTPException, status
+
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,14 @@ from services.common.estab_config import (
     get_estab_config,
     list_estab_configs,
     update_estab_config,
+)
+from services.web_api.audit import (
+    client_ip,
+    list_access_logs,
+    resolve_action,
+    should_skip_path,
+    username_from_request,
+    write_audit_log,
 )
 from services.web_api.config import (
     BOOTSTRAP_ADMIN_PASSWORD,
@@ -24,6 +33,7 @@ from services.web_api.deps import get_current_user, require_admin
 from services.web_api.http_errors import raise_for_extractor_response
 from services.web_api.models import Usuario
 from services.web_api.schemas import (
+    AccessAuditPageOut,
     EmitirNotaEspecificaRequest,
     EmitirNotaRequest,
     EnviarRelatorioRequest,
@@ -33,6 +43,7 @@ from services.web_api.schemas import (
     NotaConsultaOut,
     NotaDetalheOut,
     NotaStatusOut,
+    NotaStatusPageOut,
     ReemitirNotaRequest,
     Token,
     UsuarioCreate,
@@ -50,6 +61,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def access_audit_middleware(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if request.method == "OPTIONS" or should_skip_path(path):
+        return response
+    # Login e tratado no endpoint (sucesso/falha com detalhe).
+    if path == "/auth/login":
+        return response
+    try:
+        username, role, estabelecimento = username_from_request(request)
+        db = SessionLocal()
+        try:
+            write_audit_log(
+                db,
+                ip=client_ip(request),
+                method=request.method,
+                path=path,
+                status_code=response.status_code,
+                username=username,
+                role=role,
+                estabelecimento=estabelecimento,
+                action=resolve_action(request.method, path),
+                user_agent=request.headers.get("user-agent"),
+            )
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return response
 
 
 @app.on_event("startup")
@@ -80,9 +123,29 @@ def health() -> dict:
 
 
 @app.post("/auth/login", response_model=Token)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> Token:
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Token:
     user = repository.get_user_by_username(db, payload.username)
+    ip = client_ip(request)
+    ua = request.headers.get("user-agent")
     if user is None or not verify_password(payload.password, user.hashed_password):
+        try:
+            write_audit_log(
+                db,
+                ip=ip,
+                method="POST",
+                path="/auth/login",
+                status_code=401,
+                username=payload.username,
+                action="login_falha",
+                detail="Usuario ou senha invalidos",
+                user_agent=ua,
+            )
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario ou senha invalidos",
@@ -90,6 +153,22 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> Token:
     token = create_access_token(
         subject=user.username, role=user.role, estabelecimento=user.estabelecimento
     )
+    try:
+        write_audit_log(
+            db,
+            ip=ip,
+            method="POST",
+            path="/auth/login",
+            status_code=200,
+            username=user.username,
+            role=user.role,
+            estabelecimento=user.estabelecimento,
+            action="login",
+            detail="Login OK",
+            user_agent=ua,
+        )
+    except Exception:
+        pass
     return Token(access_token=token)
 
 
@@ -305,7 +384,7 @@ def reemitir_nota(
     }
 
 
-@app.get("/notas", response_model=list[NotaStatusOut])
+@app.get("/notas", response_model=NotaStatusPageOut)
 def listar_notas(
     estabelecimento: str | None = None,
     nf: str | None = None,
@@ -315,9 +394,11 @@ def listar_notas(
     erro_tipo: str | None = None,
     data_nf_inicio: date | None = None,
     data_nf_fim: date | None = None,
+    page: int = 1,
+    page_size: int = 50,
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[dict]:
+) -> dict:
     if current_user.role == "adm":
         target = estabelecimento
     else:
@@ -332,6 +413,8 @@ def listar_notas(
         erro_tipo=erro_tipo,
         data_nf_inicio=data_nf_inicio,
         data_nf_fim=data_nf_fim,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -396,7 +479,7 @@ def detalhe_nota(
     return detalhe
 
 
-@app.get("/admin/logs", response_model=list[NotaStatusOut])
+@app.get("/admin/logs", response_model=NotaStatusPageOut)
 def listar_logs(
     _: Usuario = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -404,15 +487,37 @@ def listar_logs(
     status: str | None = None,
     erro_tipo: str | None = None,
     somente_erro: bool = True,
-    limit: int = 100,
-) -> list[dict]:
+    page: int = 1,
+    page_size: int = 50,
+) -> dict:
     return panel_data.list_logs(
         db,
         estabelecimento=estabelecimento,
         status=status,
         erro_tipo=erro_tipo,
         somente_erro=somente_erro,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@app.get("/admin/acesso", response_model=AccessAuditPageOut)
+def listar_acesso(
+    _: Usuario = Depends(require_admin),
+    db: Session = Depends(get_db),
+    username: str | None = None,
+    ip: str | None = None,
+    action: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    return list_access_logs(
+        db,
+        username=username,
+        ip=ip,
+        action=action,
         limit=limit,
+        offset=offset,
     )
 
 
