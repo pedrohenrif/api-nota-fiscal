@@ -24,6 +24,10 @@ _ACTION_MAP: list[tuple[str, str, str]] = [
     ("GET", "/admin/estabelecimentos/config", "listar_config"),
     ("PATCH", "/admin/estabelecimentos/", "atualizar_config"),
     ("POST", "/admin/relatorios/enviar", "enviar_relatorio"),
+    ("GET", "/destinatarios", "listar_destinatarios"),
+    ("POST", "/destinatarios", "criar_destinatario"),
+    ("PATCH", "/destinatarios/", "editar_destinatario"),
+    ("DELETE", "/destinatarios/", "excluir_destinatario"),
     ("GET", "/usuarios", "listar_usuarios"),
     ("POST", "/usuarios", "criar_usuario"),
     ("GET", "/estabelecimentos", "listar_estabelecimentos"),
@@ -109,10 +113,15 @@ def list_access_logs(
     username: Optional[str] = None,
     ip: Optional[str] = None,
     action: Optional[str] = None,
+    role: Optional[str] = None,
+    estabelecimento: Optional[str] = None,
+    status_code: Optional[int] = None,
+    data_inicio: Optional[Any] = None,
+    data_fim: Optional[Any] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> dict[str, Any]:
-    from sqlalchemy import func
+    from sqlalchemy import cast, Date, func
 
     query = db.query(AccessAuditLog)
     if username:
@@ -120,7 +129,19 @@ def list_access_logs(
     if ip:
         query = query.filter(AccessAuditLog.ip.ilike(f"%{ip.strip()}%"))
     if action:
-        query = query.filter(AccessAuditLog.action == action.strip())
+        query = query.filter(AccessAuditLog.action.ilike(f"%{action.strip()}%"))
+    if role:
+        query = query.filter(AccessAuditLog.role == role.strip())
+    if estabelecimento:
+        query = query.filter(
+            AccessAuditLog.estabelecimento.ilike(f"%{estabelecimento.strip()}%")
+        )
+    if status_code is not None:
+        query = query.filter(AccessAuditLog.status_code == int(status_code))
+    if data_inicio:
+        query = query.filter(cast(AccessAuditLog.created_at, Date) >= data_inicio)
+    if data_fim:
+        query = query.filter(cast(AccessAuditLog.created_at, Date) <= data_fim)
 
     total = query.with_entities(func.count(AccessAuditLog.id)).scalar() or 0
     rows = (

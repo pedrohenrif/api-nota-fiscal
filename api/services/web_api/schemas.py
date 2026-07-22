@@ -173,3 +173,20 @@ class AccessAuditPageOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class DestinatarioOut(BaseModel):
+    id: int
+    estabelecimento: str
+    email: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class DestinatarioCreate(BaseModel):
+    estabelecimento: Optional[str] = None
+    email: str = Field(min_length=3, max_length=255)
+
+
+class DestinatarioUpdate(BaseModel):
+    email: str = Field(min_length=3, max_length=255)

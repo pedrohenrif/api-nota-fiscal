@@ -1,14 +1,36 @@
 import { useCallback, useState } from "react";
 import { api } from "../api";
+import Pagination from "../components/Pagination";
 import { buildQuery, formatDataHora } from "../lib/format";
 import type { AccessAuditLog, AccessAuditPage } from "../types";
-import Pagination from "../components/Pagination";
+
+const ACTION_OPTIONS = [
+  { value: "", label: "Todas as ações" },
+  { value: "login", label: "login" },
+  { value: "login_falha", label: "login_falha" },
+  { value: "listar_notas", label: "listar_notas" },
+  { value: "emitir_pendentes", label: "emitir_pendentes" },
+  { value: "emitir_especifica", label: "emitir_especifica" },
+  { value: "reemitir_nota", label: "reemitir_nota" },
+  { value: "detalhe_nota", label: "detalhe_nota" },
+  { value: "listar_destinatarios", label: "listar_destinatarios" },
+  { value: "criar_destinatario", label: "criar_destinatario" },
+  { value: "editar_destinatario", label: "editar_destinatario" },
+  { value: "excluir_destinatario", label: "excluir_destinatario" },
+  { value: "enviar_relatorio", label: "enviar_relatorio" },
+  { value: "atualizar_config", label: "atualizar_config" },
+];
 
 export default function Acesso() {
   const [items, setItems] = useState<AccessAuditLog[]>([]);
   const [username, setUsername] = useState("");
   const [ip, setIp] = useState("");
   const [action, setAction] = useState("");
+  const [role, setRole] = useState("");
+  const [estabelecimento, setEstabelecimento] = useState("");
+  const [statusCode, setStatusCode] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [jaPesquisou, setJaPesquisou] = useState(false);
@@ -26,6 +48,11 @@ export default function Acesso() {
           username: username || undefined,
           ip: ip || undefined,
           action: action || undefined,
+          role: role || undefined,
+          estabelecimento: estabelecimento || undefined,
+          status_code: statusCode || undefined,
+          data_inicio: dataInicio || undefined,
+          data_fim: dataFim || undefined,
           limit: String(pageSize),
           offset: String((pageToLoad - 1) * pageSize),
         });
@@ -40,40 +67,98 @@ export default function Acesso() {
         setCarregando(false);
       }
     },
-    [action, ip, page, username]
+    [action, dataFim, dataInicio, estabelecimento, ip, page, role, statusCode, username]
   );
 
   const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
 
+  const limpar = () => {
+    setUsername("");
+    setIp("");
+    setAction("");
+    setRole("");
+    setEstabelecimento("");
+    setStatusCode("");
+    setDataInicio("");
+    setDataFim("");
+    setItems([]);
+    setTotal(0);
+    setPage(1);
+    setJaPesquisou(false);
+    setErro(null);
+  };
+
   return (
     <div className="page">
       <h1>Acessos e auditoria</h1>
+      <p className="page-lead">Visível apenas para administradores.</p>
 
       <div className="card">
         <p className="help-text">
-          Registro de IP, usuário e ações no painel (login, listagens, emissão, etc.).
+          Registro de IP, usuário e ações no painel (login, listagens, emissão, destinatários, etc.).
         </p>
-        <div className="row">
-          <label>
-            Usuário
+        <div className="filters-grid">
+          <label className="filter-field">
+            <span className="filter-label">Usuário</span>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Opcional"
             />
           </label>
-          <label>
-            IP
+          <label className="filter-field">
+            <span className="filter-label">IP</span>
             <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="Opcional" />
           </label>
-          <label>
-            Ação
+          <label className="filter-field">
+            <span className="filter-label">Ação</span>
+            <select value={action} onChange={(e) => setAction(e.target.value)}>
+              {ACTION_OPTIONS.map((opt) => (
+                <option key={opt.value || "all"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-field">
+            <span className="filter-label">Perfil</span>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="adm">Admin</option>
+              <option value="usuario">Usuário</option>
+            </select>
+          </label>
+          <label className="filter-field">
+            <span className="filter-label">Estabelecimento</span>
             <input
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              placeholder="Ex: login, emitir_pendentes"
+              value={estabelecimento}
+              onChange={(e) => setEstabelecimento(e.target.value)}
+              placeholder="Ex: Castelo"
             />
           </label>
+          <label className="filter-field">
+            <span className="filter-label">Status HTTP</span>
+            <input
+              value={statusCode}
+              onChange={(e) => setStatusCode(e.target.value)}
+              placeholder="Ex: 200, 401"
+              inputMode="numeric"
+            />
+          </label>
+          <label className="filter-field">
+            <span className="filter-label">Data — de</span>
+            <input
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+            />
+          </label>
+          <label className="filter-field">
+            <span className="filter-label">Data — até</span>
+            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+          </label>
+        </div>
+        <div className="filters-actions">
           <button
             className="btn-primary"
             type="button"
@@ -83,6 +168,9 @@ export default function Acesso() {
             }}
           >
             {carregando ? "Carregando..." : "Pesquisar"}
+          </button>
+          <button className="btn-ghost" type="button" onClick={limpar}>
+            Limpar
           </button>
         </div>
         {erro ? <div className="alert-error">{erro}</div> : null}
@@ -96,8 +184,8 @@ export default function Acesso() {
           </div>
         </div>
 
-        <div className="table-wrap">
-          <table>
+        <div className="table-scroll">
+          <table className="table">
             <thead>
               <tr>
                 <th>Data/Hora</th>

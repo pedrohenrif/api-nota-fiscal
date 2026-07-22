@@ -20,10 +20,12 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/" end>
             Emitir Nota
           </NavLink>
+          <NavLink to="/destinatarios">Destinatários</NavLink>
           {user?.role === "adm" && <NavLink to="/usuarios">Usuários</NavLink>}
           {user?.role === "adm" && <NavLink to="/logs">Logs</NavLink>}
           {user?.role === "adm" && <NavLink to="/acesso">Acessos</NavLink>}
           {user?.role === "adm" && <NavLink to="/configuracoes">Configurações</NavLink>}
+          <NavLink to="/ajuda">Ajuda</NavLink>
         </nav>
         <div className="sidebar-footer">
           <div className="user-info">

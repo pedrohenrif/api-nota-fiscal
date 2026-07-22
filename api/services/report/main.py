@@ -4,6 +4,7 @@ from fastapi import FastAPI, HTTPException
 
 from services.common.estabelecimentos import ESTABELECIMENTOS
 from services.common.estab_config import ensure_estab_config_table, list_report_enabled
+from services.common.report_recipients import ensure_report_recipients_table
 from services.report.config import REPORT_INTERVAL_MINUTES, REPORT_SCHEDULER_ENABLED
 from services.report.report_sent import ensure_report_sent_table
 from services.report.service import run_report_for_estabelecimento, run_scheduled_reports
@@ -42,6 +43,7 @@ def startup() -> None:
     global scheduler_thread
     ensure_estab_config_table()
     ensure_report_sent_table()
+    ensure_report_recipients_table()
     if not REPORT_SCHEDULER_ENABLED:
         return
     if scheduler_thread and scheduler_thread.is_alive():

@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Acesso from "./pages/Acesso";
+import Ajuda from "./pages/Ajuda";
 import Configuracoes from "./pages/Configuracoes";
+import Destinatarios from "./pages/Destinatarios";
 import EmitirNota from "./pages/EmitirNota";
 import Login from "./pages/Login";
 import Logs from "./pages/Logs";
@@ -58,6 +60,26 @@ export default function App() {
           <ProtectedRoute adminOnly>
             <Layout>
               <Configuracoes />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/destinatarios"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Destinatarios />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ajuda"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Ajuda />
             </Layout>
           </ProtectedRoute>
         }

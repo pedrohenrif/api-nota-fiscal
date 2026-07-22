@@ -601,10 +601,15 @@ select:focus {
   z-index: 2;
   white-space: nowrap;
   text-align: center;
-  min-width: 110px;
-  width: 110px;
+  min-width: 120px;
   background: var(--surface);
   box-shadow: -6px 0 10px rgba(46, 46, 46, 0.06);
+}
+
+.table-notas .actions-col,
+.table-notas .actions-cell {
+  width: 110px;
+  min-width: 110px;
 }
 
 .table-notas thead .actions-col {
@@ -1207,6 +1212,58 @@ select:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.page-lead {
+  margin: -8px 0 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 720px;
+}
+
+.destinatario-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.destinatario-form label {
+  flex: 1;
+  min-width: 240px;
+}
+
+.actions-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-danger-text {
+  color: var(--danger) !important;
+}
+
+.help-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.help-card h2 {
+  margin-bottom: 10px;
+}
+
+.help-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.help-card li + li {
+  margin-top: 8px;
 }
 
 .erro-cell {

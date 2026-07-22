@@ -12,6 +12,13 @@ from services.common.estab_config import (
     list_estab_configs,
     update_estab_config,
 )
+from services.common.report_recipients import (
+    create_recipient,
+    delete_recipient,
+    ensure_report_recipients_table,
+    list_recipients,
+    update_recipient,
+)
 from services.web_api.audit import (
     client_ip,
     list_access_logs,
@@ -34,6 +41,9 @@ from services.web_api.http_errors import raise_for_extractor_response
 from services.web_api.models import Usuario
 from services.web_api.schemas import (
     AccessAuditPageOut,
+    DestinatarioCreate,
+    DestinatarioOut,
+    DestinatarioUpdate,
     EmitirNotaEspecificaRequest,
     EmitirNotaRequest,
     EnviarRelatorioRequest,
@@ -99,6 +109,7 @@ async def access_audit_middleware(request: Request, call_next):
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
     ensure_estab_config_table()
+    ensure_report_recipients_table()
     _seed_admin()
 
 
@@ -510,6 +521,11 @@ def listar_acesso(
     username: str | None = None,
     ip: str | None = None,
     action: str | None = None,
+    role: str | None = None,
+    estabelecimento: str | None = None,
+    status_code: int | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> dict:
@@ -518,9 +534,101 @@ def listar_acesso(
         username=username,
         ip=ip,
         action=action,
+        role=role,
+        estabelecimento=estabelecimento,
+        status_code=status_code,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
         limit=limit,
         offset=offset,
     )
+
+
+def _resolve_destinatario_estabelecimento(
+    current_user: Usuario, estabelecimento: str | None
+) -> str | None:
+    if current_user.role == "adm":
+        return estabelecimento
+    return current_user.estabelecimento
+
+
+@app.get("/destinatarios", response_model=list[DestinatarioOut])
+def listar_destinatarios(
+    estabelecimento: str | None = None,
+    current_user: Usuario = Depends(get_current_user),
+) -> list[dict]:
+    target = _resolve_destinatario_estabelecimento(current_user, estabelecimento)
+    if current_user.role != "adm" and not target:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sem estabelecimento vinculado",
+        )
+    return list_recipients(estabelecimento=target)
+
+
+@app.post("/destinatarios", response_model=DestinatarioOut, status_code=status.HTTP_201_CREATED)
+def criar_destinatario(
+    payload: DestinatarioCreate,
+    current_user: Usuario = Depends(get_current_user),
+) -> dict:
+    if current_user.role == "adm":
+        target = payload.estabelecimento
+        if not target:
+            raise HTTPException(status_code=422, detail="Informe o estabelecimento")
+    else:
+        target = current_user.estabelecimento
+        if not target:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario sem estabelecimento vinculado",
+            )
+        if payload.estabelecimento and payload.estabelecimento != target:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario so pode cadastrar e-mails do proprio estabelecimento",
+            )
+    try:
+        return create_recipient(estabelecimento=target, email=payload.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.patch("/destinatarios/{recipient_id}", response_model=DestinatarioOut)
+def editar_destinatario(
+    recipient_id: int,
+    payload: DestinatarioUpdate,
+    current_user: Usuario = Depends(get_current_user),
+) -> dict:
+    allowed = None if current_user.role == "adm" else current_user.estabelecimento
+    try:
+        return update_recipient(
+            recipient_id=recipient_id,
+            email=payload.email,
+            allowed_estabelecimento=allowed,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.delete("/destinatarios/{recipient_id}", status_code=status.HTTP_204_NO_CONTENT)
+def excluir_destinatario(
+    recipient_id: int,
+    current_user: Usuario = Depends(get_current_user),
+) -> None:
+    allowed = None if current_user.role == "adm" else current_user.estabelecimento
+    try:
+        delete_recipient(
+            recipient_id=recipient_id,
+            allowed_estabelecimento=allowed,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @app.get("/admin/estabelecimentos/config", response_model=list[EstabelecimentoConfigOut])

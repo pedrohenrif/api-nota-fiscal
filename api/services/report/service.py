@@ -24,7 +24,7 @@ def run_report_for_estabelecimento(
         return {
             "estabelecimento": estabelecimento,
             "enviado": False,
-            "motivo": "Sem destinatarios configurados no .env (REPORT_EMAIL_*)",
+            "motivo": "Sem destinatarios cadastrados (aba Destinatarios ou REPORT_EMAIL_* no .env)",
             "totais": report["totais"],
         }
 

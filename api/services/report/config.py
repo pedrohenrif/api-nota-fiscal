@@ -1,6 +1,7 @@
 import os
 
 from services.common.estabelecimentos import ESTABELECIMENTOS
+from services.common.report_recipients import get_recipients as get_db_recipients
 
 REPORT_INTERVAL_MINUTES = int(os.getenv("REPORT_INTERVAL_MINUTES", "30"))
 REPORT_SCHEDULER_ENABLED = os.getenv("REPORT_SCHEDULER_ENABLED", "true").lower() == "true"
@@ -15,20 +16,9 @@ SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "API GHR")
 SMTP_USER_FALLBACK = os.getenv("SMTP_USER_FALLBACK", "")
 SMTP_PASSWORD_FALLBACK = os.getenv("SMTP_PASSWORD_FALLBACK", "")
 
-_EMAIL_ENV_KEYS = {
-    "Castelo": "REPORT_EMAIL_CASTELO",
-    "HRAS": "REPORT_EMAIL_HRAS",
-    "HRT": "REPORT_EMAIL_HRT",
-    "Ponta Pora": "REPORT_EMAIL_PONTA_PORA",
-}
-
 
 def get_recipients(estabelecimento: str) -> list[str]:
-    env_key = _EMAIL_ENV_KEYS.get(estabelecimento)
-    if not env_key:
-        return []
-    raw = os.getenv(env_key, "")
-    return [part.strip() for part in raw.split(",") if part.strip()]
+    return get_db_recipients(estabelecimento)
 
 
 def list_estabelecimentos() -> list[str]:
