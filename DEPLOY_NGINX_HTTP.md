@@ -246,3 +246,84 @@ sudo tail -f /var/log/nginx/error.log
 cd /caminho/para/projeto-nota-fiscal/api
 docker compose logs -f web-api-service
 ```
+
+---
+
+## 10. Caso atual — DDNS + porta 5001
+
+Dados da infra:
+
+| Item | Valor |
+|------|--------|
+| DDNS | `painel-isms-nf.ddns.net` |
+| Porta pública | `5001` |
+| URL do painel | `http://painel-isms-nf.ddns.net:5001` |
+| URL da API (via nginx) | `http://painel-isms-nf.ddns.net:5001/api` |
+
+### 10.1 Firewall
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 5001/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+Confirme com a infra se o NAT/firewall externo também publica **5001 → IP da VM:5001**.
+
+### 10.2 API (`api/.env`)
+
+```env
+CORS_ORIGINS=http://painel-isms-nf.ddns.net:5001
+```
+
+```bash
+cd /caminho/para/projeto-nota-fiscal/api
+# web-api só em localhost:
+# ports: - "127.0.0.1:8003:8003"
+docker compose up -d
+docker compose restart web-api-service
+curl -s http://127.0.0.1:8003/health
+```
+
+### 10.3 Build do site (`site/.env`)
+
+```env
+VITE_API_BASE_URL=http://painel-isms-nf.ddns.net:5001/api
+```
+
+```bash
+cd /caminho/para/projeto-nota-fiscal/site
+npm install
+npm run build
+```
+
+### 10.4 Nginx na 5001
+
+```bash
+sudo cp /caminho/para/projeto-nota-fiscal/deploy/nginx-isms-nf.conf \
+  /etc/nginx/sites-available/isms-nf
+sudo nano /etc/nginx/sites-available/isms-nf
+# ajuste o root=.../site/dist
+sudo ln -sf /etc/nginx/sites-available/isms-nf /etc/nginx/sites-enabled/isms-nf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Testes:
+
+```bash
+curl -s http://127.0.0.1:5001/api/health
+curl -I http://127.0.0.1:5001/
+# de fora / do seu PC:
+curl -s http://painel-isms-nf.ddns.net:5001/api/health
+```
+
+Abrir no navegador: **http://painel-isms-nf.ddns.net:5001**
+
+### 10.5 Se não abrir de fora
+
+1. `sudo ss -tlnp | grep 5001` — nginx escutando?
+2. `sudo ufw status` — 5001 liberada?
+3. Perguntar à infra se o DDNS aponta para o IP certo e se o NAT da 5001 está ativo
+4. `nslookup painel-isms-nf.ddns.net` — resolve para o IP da VM?
