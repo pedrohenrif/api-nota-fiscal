@@ -141,7 +141,9 @@ Emissão manual **não depende** dos toggles de scheduler.
 
 1. Lê perfil em `extraction_profiles.py` (`cd_estabelecimento`, operações, datas).
 2. SQL em `sql_templates.py` (sempre prefixar colunas `nf.` / `nfi.` — evita `ORA-00918`).
-3. Filtros típicos: `dt_integracao IS NULL`, `ie_tipo_nota = 'EN'`, ops `1,39`, item op `33` excluída, datas mínimas.
+3. Filtros típicos: `dt_integracao IS NULL`, `ie_tipo_nota = 'EN'`, ops `1,39`, item op `33` excluída,
+   `dt_atualizacao_estoque` com **janela móvel de 31 dias** (`hoje - 31`, recalculada a cada extração),
+   e `dt_emissao` mínima fixa no perfil.
 4. Monta `NotaFiscalPRPayload` e publica JSON durable em `nf.raw`.
 
 ### 4.3 Processamento
