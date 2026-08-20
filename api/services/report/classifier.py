@@ -247,5 +247,10 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
 
 
 def has_report_content(report: dict[str, Any]) -> bool:
+    """Dispara e-mail automatico so com pendencias/erros.
+
+    Notas ja emitidas (integradas/sent) nao disparam o ciclo sozinhas.
+    """
     totais = report.get("totais") or {}
-    return any(int(totais.get(key, 0) or 0) > 0 for key in totais)
+    problem_keys = ("nao_integradas", "sem_depara", "sem_lote", "erros_pr")
+    return any(int(totais.get(key, 0) or 0) > 0 for key in problem_keys)

@@ -145,6 +145,17 @@ class EnviarRelatorioRequest(BaseModel):
     estabelecimento: str
 
 
+class ReportSettingsOut(BaseModel):
+    report_interval_minutes: int
+    report_interval_options: list[int]
+    scheduler_enabled: Optional[bool] = None
+    mensagem: Optional[str] = None
+
+
+class ReportSettingsUpdate(BaseModel):
+    report_interval_minutes: int
+
+
 class NotaStatusPageOut(BaseModel):
     items: list[NotaStatusOut]
     total: int

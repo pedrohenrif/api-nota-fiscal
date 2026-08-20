@@ -61,6 +61,8 @@ from services.web_api.schemas import (
     NotaStatusOut,
     NotaStatusPageOut,
     ReemitirNotaRequest,
+    ReportSettingsOut,
+    ReportSettingsUpdate,
     Token,
     UsuarioCreate,
     UsuarioOut,
@@ -797,6 +799,52 @@ def enviar_relatorio_email(
             response = client.post(
                 f"{REPORT_URL}/relatorios/enviar",
                 params={"estabelecimento": payload.estabelecimento},
+            )
+            if response.is_error:
+                detail = response.text
+                try:
+                    body = response.json()
+                    detail = body.get("detail") or body
+                except ValueError:
+                    pass
+                raise HTTPException(status_code=response.status_code, detail=detail)
+            return response.json()
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de relatorio indisponivel. Verifique o report-service.",
+        )
+
+
+@app.get("/admin/relatorios/config", response_model=ReportSettingsOut)
+def obter_config_relatorio(_: Usuario = Depends(require_admin)) -> dict:
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.get(f"{REPORT_URL}/relatorios/config")
+            if response.is_error:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+            return response.json()
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de relatorio indisponivel. Verifique o report-service.",
+        )
+
+
+@app.patch("/admin/relatorios/config", response_model=ReportSettingsOut)
+def atualizar_config_relatorio(
+    payload: ReportSettingsUpdate,
+    _: Usuario = Depends(require_admin),
+) -> dict:
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.patch(
+                f"{REPORT_URL}/relatorios/config",
+                json={"report_interval_minutes": payload.report_interval_minutes},
             )
             if response.is_error:
                 detail = response.text

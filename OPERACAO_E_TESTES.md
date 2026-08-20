@@ -129,8 +129,8 @@ WHERE ie_tipo_nota = 'EN'
   AND ie_situacao NOT IN (2, 3)
   AND cd_operacao_nf IN (1, 39)
   AND TRUNC(dt_emissao) >= DATE '2024-05-14'
-  AND TRUNC(dt_atualizacao_estoque) >= TRUNC(SYSDATE) - 31
-  -- (no middleware: dt_atualizacao_estoque_min = hoje - 31 dias, janela móvel)
+  AND TRUNC(dt_atualizacao_estoque) >= DATE '2026-08-05'
+  -- piso operacional dt_atualizacao_estoque_min = 2026-08-05
 ```
 
 Emissao por **nota especifica** valida operacao, estabelecimento e demais regras antes de publicar na fila.

@@ -24,6 +24,8 @@ _ACTION_MAP: list[tuple[str, str, str]] = [
     ("GET", "/admin/estabelecimentos/config", "listar_config"),
     ("PATCH", "/admin/estabelecimentos/", "atualizar_config"),
     ("POST", "/admin/relatorios/enviar", "enviar_relatorio"),
+    ("GET", "/admin/relatorios/config", "obter_config_relatorio"),
+    ("PATCH", "/admin/relatorios/config", "atualizar_config_relatorio"),
     ("GET", "/destinatarios", "listar_destinatarios"),
     ("POST", "/destinatarios", "criar_destinatario"),
     ("PATCH", "/destinatarios/", "editar_destinatario"),

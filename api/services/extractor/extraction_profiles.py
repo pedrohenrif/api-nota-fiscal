@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
+
+
+# Data mínima inclusiva de dt_atualizacao_estoque (piso operacional).
+DT_ATUALIZACAO_ESTOQUE_MIN = "2026-08-05"
 
 
 @dataclass(frozen=True)
@@ -9,16 +13,7 @@ class ExtractionProfile:
     dt_emissao_min: str
     cd_operacao_nf_in: tuple[int, ...]
     cd_operacao_nf_item_not_in: tuple[int, ...]
-    # Janela móvel: só notas com dt_atualizacao_estoque >= (hoje - N dias).
-    dt_atualizacao_estoque_lookback_days: int = 31
-
-    @property
-    def dt_atualizacao_estoque_min(self) -> str:
-        """Data mínima inclusiva recalculada a cada extração (YYYY-MM-DD)."""
-        return (
-            date.today()
-            - timedelta(days=self.dt_atualizacao_estoque_lookback_days)
-        ).isoformat()
+    dt_atualizacao_estoque_min: str = DT_ATUALIZACAO_ESTOQUE_MIN
 
 
 PROFILES = {
@@ -52,3 +47,7 @@ PROFILES = {
         cd_operacao_nf_item_not_in=(33,),
     ),
 }
+
+
+def assert_estoque_min_parseable() -> None:
+    date.fromisoformat(DT_ATUALIZACAO_ESTOQUE_MIN)

@@ -184,7 +184,7 @@ def main() -> None:
             "Operações liberadas: 1 e 39;",
             "Itens com operação 33 são desconsiderados;",
             "Data de emissão a partir de 14/05/2024;",
-            "Atualização de estoque nos últimos 31 dias (janela móvel a partir de hoje);",
+            "Atualização de estoque a partir de 05/08/2026 (piso operacional);",
             "Situações 2 e 3 excluídas.",
         ]
     )

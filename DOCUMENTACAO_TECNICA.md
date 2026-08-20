@@ -9,6 +9,7 @@ Documento para desenvolvedores. Complementa:
 - [GO_LIVE_PRODUCAO.md](./GO_LIVE_PRODUCAO.md)
 - [DEBUG_VM.md](./DEBUG_VM.md)
 - Manual do cliente: `docs/Manual_Cliente_Painel_Integracao_Notas_Fiscais.docx`
+- Esta documentação em DOCX: `docs/Documentacao_Tecnica_Integracao_Notas_Fiscais.docx` (gerar com `docs/gerar_documentacao_tecnica.py`)
 
 Versão: 1.0 — Julho/2026
 
@@ -142,7 +143,7 @@ Emissão manual **não depende** dos toggles de scheduler.
 1. Lê perfil em `extraction_profiles.py` (`cd_estabelecimento`, operações, datas).
 2. SQL em `sql_templates.py` (sempre prefixar colunas `nf.` / `nfi.` — evita `ORA-00918`).
 3. Filtros típicos: `dt_integracao IS NULL`, `ie_tipo_nota = 'EN'`, ops `1,39`, item op `33` excluída,
-   `dt_atualizacao_estoque` com **janela móvel de 31 dias** (`hoje - 31`, recalculada a cada extração),
+   `dt_atualizacao_estoque >= 2026-08-05` (piso operacional),
    e `dt_emissao` mínima fixa no perfil.
 4. Monta `NotaFiscalPRPayload` e publica JSON durable em `nf.raw`.
 
@@ -347,10 +348,13 @@ Retries:
 
 Arquivos: `report/classifier.py`, `service.py`, `report_sent.py`
 
-Ciclo: `REPORT_INTERVAL_MINUTES` (30)  
+Ciclo: `REPORT_INTERVAL_MINUTES` (padrão 6; opções 6 ou 30 no painel → Configurações)  
 Lookback middleware: `REPORT_LOOKBACK_MINUTES`  
 Master: `REPORT_SCHEDULER_ENABLED`  
 Por unidade: `estabelecimento_config.report_enabled`
+
+Disparo automático só com pendências/erros (`sem_depara`, `sem_lote`, `erros_pr`, `nao_integradas`).
+Notas já emitidas (`sent`) não disparam o ciclo sozinhas.
 
 Classificação:
 
