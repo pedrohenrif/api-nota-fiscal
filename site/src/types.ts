@@ -87,6 +87,19 @@ export interface AccessIpSummary {
   por_ip: AccessIpSummaryItem[];
 }
 
+export interface NotaConsultaLocalEstoque {
+  cd_local_estoque: string;
+  qtd_itens: number;
+}
+
+export interface NotaConsultaItemDiagnostico {
+  nr_item_nf: string;
+  cd_material: string;
+  ds_reduzida?: string | null;
+  cd_local_estoque?: number | null;
+  elegivel: boolean;
+}
+
 export interface NotaConsulta {
   encontrada: boolean;
   valido: boolean;
@@ -98,6 +111,9 @@ export interface NotaConsulta {
   fornecedor?: string | null;
   data_nf?: string | null;
   qtd_itens?: number | null;
+  qtd_itens_total?: number | null;
+  locais_estoque?: NotaConsultaLocalEstoque[];
+  itens_diagnostico?: NotaConsultaItemDiagnostico[];
   preview?: NotaPreview | null;
 }
 

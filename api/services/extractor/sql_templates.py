@@ -138,6 +138,24 @@ WHERE
 """
 
 
+# Todos os itens da nota (sem filtro de elegibilidade) — diagnostico na consulta.
+ITEMS_DIAGNOSTICO_SQL = """
+SELECT
+    nfi.nr_item_nf                                          AS NR_ITEM_NF,
+    mat.cd_material                                         AS CODPROD,
+    nfi.cd_local_estoque                                    AS CD_LOCAL_ESTOQUE,
+    mat.ds_reduzida                                         AS DS_REDUZIDA
+FROM
+    tasy.nota_fiscal_item nfi
+LEFT JOIN
+    tasy.material mat ON nfi.cd_material = mat.cd_material
+WHERE
+    nfi.nr_sequencia = :nr_sequencia
+ORDER BY
+    nfi.nr_item_nf
+"""
+
+
 def _format_numeric_filter(values: tuple[int, ...]) -> str:
     if not values:
         raise ValueError("Filtro de cd_operacao nao pode ser vazio.")

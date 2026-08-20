@@ -47,6 +47,19 @@ class ReemitirNotaRequest(BaseModel):
     id: int
 
 
+class NotaConsultaLocalEstoqueOut(BaseModel):
+    cd_local_estoque: str
+    qtd_itens: int
+
+
+class NotaConsultaItemDiagnosticoOut(BaseModel):
+    nr_item_nf: str
+    cd_material: str
+    ds_reduzida: Optional[str] = None
+    cd_local_estoque: Optional[int] = None
+    elegivel: bool = False
+
+
 class NotaConsultaOut(BaseModel):
     encontrada: bool
     valido: bool
@@ -58,6 +71,9 @@ class NotaConsultaOut(BaseModel):
     fornecedor: Optional[str] = None
     data_nf: Optional[datetime] = None
     qtd_itens: Optional[int] = None
+    qtd_itens_total: Optional[int] = None
+    locais_estoque: list[NotaConsultaLocalEstoqueOut] = Field(default_factory=list)
+    itens_diagnostico: list[NotaConsultaItemDiagnosticoOut] = Field(default_factory=list)
     preview: Optional[dict] = None
 
 

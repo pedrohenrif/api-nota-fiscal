@@ -9,12 +9,16 @@ from services.extractor.oracle_client import build_oracle_client
 from services.extractor.schemas import NotaFiscalPRPayload
 from services.extractor.sql_templates import (
     HEADER_NOTE_BY_NR_SEQUENCIA_SQL,
+    ITEMS_DIAGNOSTICO_SQL,
     LOTS_BY_ITEM_FALLBACK_SQL,
     LOTS_BY_ITEM_LOTE_SQL,
     MARK_NOTE_INTEGRATED_SQL,
     build_header_notes_sql,
     build_items_by_nr_sequencia_sql,
 )
+
+# Locais excluidos no SQL de itens elegiveis (manter alinhado a sql_templates).
+LOCAIS_ESTOQUE_EXCLUIDOS = frozenset({104})
 
 
 class QueryExecutor(Protocol):
@@ -57,6 +61,54 @@ def _fetch_note_items(
 ) -> list[dict[str, Any]]:
     items_sql = build_items_by_nr_sequencia_sql(cd_operacao_nf_item_not_in)
     return db_client.fetch_all(items_sql, params={"nr_sequencia": nr_sequencia})
+
+
+def _fetch_items_diagnostico(
+    db_client: QueryExecutor, nr_sequencia: Any
+) -> list[dict[str, Any]]:
+    rows = db_client.fetch_all(
+        ITEMS_DIAGNOSTICO_SQL, params={"nr_sequencia": nr_sequencia}
+    )
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        local_raw = _g(row, "CD_LOCAL_ESTOQUE")
+        try:
+            local = int(local_raw) if local_raw is not None else None
+        except (TypeError, ValueError):
+            local = None
+        result.append(
+            {
+                "nr_item_nf": _to_str(_g(row, "NR_ITEM_NF")),
+                "cd_material": _to_str(_g(row, "CODPROD")),
+                "ds_reduzida": _to_str(_g(row, "DS_REDUZIDA")) or None,
+                "cd_local_estoque": local,
+                "elegivel": local is not None and local not in LOCAIS_ESTOQUE_EXCLUIDOS,
+            }
+        )
+    return result
+
+
+def _mensagem_sem_itens_elegiveis(diagnostico: list[dict[str, Any]]) -> str:
+    if not diagnostico:
+        return (
+            "Nota sem itens elegiveis para integracao "
+            "(nenhum item encontrado em nota_fiscal_item)."
+        )
+    contagem: dict[str, int] = {}
+    for item in diagnostico:
+        local = item.get("cd_local_estoque")
+        chave = str(local) if local is not None else "sem local"
+        contagem[chave] = contagem.get(chave, 0) + 1
+    resumo = ", ".join(
+        f"local {local} ({qtd} {'itens' if qtd != 1 else 'item'})"
+        for local, qtd in sorted(contagem.items(), key=lambda x: x[0])
+    )
+    excluidos = ", ".join(str(x) for x in sorted(LOCAIS_ESTOQUE_EXCLUIDOS))
+    return (
+        f"Nota sem itens elegiveis para integracao. "
+        f"Itens encontrados: {resumo}. "
+        f"Locais excluidos da integracao: {excluidos}."
+    )
 
 
 def _fetch_item_lots(
@@ -224,8 +276,20 @@ def consult_note_by_nr_sequencia(
             db_client=oracle,
         ).model_dump(mode="json")
     elif validation.valido and not item_rows:
+        diagnostico = _fetch_items_diagnostico(oracle, _g(note_row, "NR_SEQUENCIA"))
         resposta["valido"] = False
-        resposta["mensagem"] = "Nota sem itens elegiveis para integracao."
+        resposta["mensagem"] = _mensagem_sem_itens_elegiveis(diagnostico)
+        resposta["qtd_itens_total"] = len(diagnostico)
+        resposta["itens_diagnostico"] = diagnostico
+        contagem: dict[str, int] = {}
+        for item in diagnostico:
+            local = item.get("cd_local_estoque")
+            chave = str(local) if local is not None else "sem local"
+            contagem[chave] = contagem.get(chave, 0) + 1
+        resposta["locais_estoque"] = [
+            {"cd_local_estoque": k, "qtd_itens": v}
+            for k, v in sorted(contagem.items(), key=lambda x: x[0])
+        ]
 
     return resposta
 

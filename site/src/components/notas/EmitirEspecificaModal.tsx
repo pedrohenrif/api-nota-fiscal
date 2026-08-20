@@ -145,11 +145,60 @@ export default function EmitirEspecificaModal({
             <strong>{consulta.fornecedor ?? "-"}</strong>
             <span>Data NF</span>
             <strong>{formatData(consulta.data_nf)}</strong>
-            <span>Itens</span>
+            <span>Itens elegíveis</span>
             <strong>{consulta.qtd_itens ?? 0}</strong>
+            {consulta.qtd_itens_total != null ? (
+              <>
+                <span>Itens no Tasy</span>
+                <strong>{consulta.qtd_itens_total}</strong>
+              </>
+            ) : null}
           </div>
           {!consulta.valido && consulta.mensagem ? (
             <p className="consulta-msg">{consulta.mensagem}</p>
+          ) : null}
+          {consulta.locais_estoque && consulta.locais_estoque.length > 0 ? (
+            <div className="consulta-locais" style={{ marginTop: 12 }}>
+              <strong style={{ display: "block", marginBottom: 6 }}>
+                Locais de estoque dos itens
+              </strong>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {consulta.locais_estoque.map((loc) => (
+                  <li key={loc.cd_local_estoque}>
+                    Local <strong>{loc.cd_local_estoque}</strong>: {loc.qtd_itens}{" "}
+                    item(ns)
+                    {loc.cd_local_estoque === "104" ? " — excluído da integração" : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {consulta.itens_diagnostico && consulta.itens_diagnostico.length > 0 ? (
+            <div style={{ marginTop: 12, overflowX: "auto" }}>
+              <table className="table" style={{ fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Material</th>
+                    <th>Local</th>
+                    <th>Elegível</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {consulta.itens_diagnostico.map((item) => (
+                    <tr key={`${item.nr_item_nf}-${item.cd_material}`}>
+                      <td>{item.nr_item_nf}</td>
+                      <td>
+                        {item.cd_material}
+                        {item.ds_reduzida ? ` — ${item.ds_reduzida}` : ""}
+                      </td>
+                      <td>{item.cd_local_estoque ?? "—"}</td>
+                      <td>{item.elegivel ? "Sim" : "Não"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : null}
         </div>
       ) : null}
