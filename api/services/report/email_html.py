@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
+
+from services.report.timeutil import format_now_brasilia
 
 
 def _fmt_money(value: Any) -> str:
@@ -56,7 +57,7 @@ def build_report_html(
     sem_lote: list[dict[str, Any]],
     erros_pr: list[dict[str, Any]],
 ) -> str:
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    agora = format_now_brasilia()
     summary = (
         f"{len(integradas)} integradas · {len(nao_integradas)} nao integradas · "
         f"{len(sem_depara)} sem de-para · {len(sem_lote)} sem lote · {len(erros_pr)} erros PR"

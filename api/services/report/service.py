@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from services.common.estab_config import list_report_enabled
@@ -9,6 +8,7 @@ from services.report.config import get_recipients
 from services.report.email_html import build_report_html
 from services.report.report_sent import ensure_report_sent_table, mark_report_sent
 from services.report.smtp_client import send_html_email
+from services.report.timeutil import format_now_brasilia
 
 
 def run_report_for_estabelecimento(
@@ -46,7 +46,7 @@ def run_report_for_estabelecimento(
     )
     subject = (
         f"Notas Fiscais ISMS - {estabelecimento} - "
-        f"{datetime.now().strftime('%d/%m/%Y %H:%M')}"
+        f"{format_now_brasilia()}"
     )
     send_result = send_html_email(
         subject=subject, html_body=html, recipients=recipients
