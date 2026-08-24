@@ -147,12 +147,19 @@ def _build_note_payload(
             for lot in lots_rows
         ]
 
+        qtd_entrada = _to_float(_g(item, "QTDE_ENTRADA"))
+        valor = _to_float(_g(item, "VALOR"))
+        cunit = _to_float(_g(item, "CUNIT"))
+        # Alinha unitario ao valor liquido enviado (evita qtd * cunit bruto <> valor).
+        if qtd_entrada > 0:
+            cunit = valor / qtd_entrada
+
         products.append(
             {
                 "codProd": _to_str(_g(item, "CODPROD")),
-                "cunit": _to_float(_g(item, "CUNIT")),
-                "valor": _to_float(_g(item, "VALOR")),
-                "qtdEntrada": _to_float(_g(item, "QTDE_ENTRADA")),
+                "cunit": cunit,
+                "valor": valor,
+                "qtdEntrada": qtd_entrada,
                 "loteNF": lots_payload,
             }
         )

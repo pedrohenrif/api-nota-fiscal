@@ -91,12 +91,15 @@ ITEMS_BY_NR_SEQUENCIA_SQL_TEMPLATE = """
 SELECT
     mat.cd_material                                         AS CODPROD,
     nfi.vl_unitario_item_nf                                 AS CUNIT,
-    nfi.vl_total_item_nf                                    AS VALOR,
+    -- PR exige soma(valor itens) = VALOR_TOTAL_NOTA ja com desconto/acrescimo.
+    -- Usar liquido do item (fallback no bruto se liquido nulo).
+    NVL(nfi.vl_liquido, nfi.vl_total_item_nf)               AS VALOR,
     nfi.qt_item_nf                                          AS QTDE_ENTRADA,
     nfi.nr_sequencia                                        AS NR_SEQ_NOTA,
     nfi.nr_item_nf                                          AS NR_ITEM_NF,
     mat.ds_reduzida                                         AS DS_REDUZIDA,
-    nfi.vl_liquido                                          AS VL_LIQUIDO
+    nfi.vl_liquido                                          AS VL_LIQUIDO,
+    nfi.vl_total_item_nf                                    AS VL_BRUTO
 FROM
     tasy.nota_fiscal nf
 LEFT JOIN
