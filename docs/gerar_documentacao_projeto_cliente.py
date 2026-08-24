@@ -273,16 +273,22 @@ def main() -> None:
 
     doc.add_heading("5.3 Valores e desconto", level=2)
     doc.add_paragraph(
-        "No envio ao PR, a solução utiliza o total da nota, o desconto do cabeçalho e os "
-        "valores dos itens conforme registrados no Tasy. O PR valida se o valor total da NF "
-        "é coerente com a soma dos valores dos produtos."
+        "O PR valida se a soma dos valores dos itens é igual ao valor total da nota "
+        "(VALOR_TOTAL_NOTA), já considerando acréscimos ou descontos nesses valores. "
+        "Ou seja: a conferência é soma(itens) = total da NF; o desconto não é aplicado "
+        "pelo PR como um passo separado nessa validação."
     )
     doc.add_paragraph(
-        "Quando há desconto relevante no cabeçalho e os itens permanecem com valores brutos, "
-        "o PR pode rejeitar a nota com mensagem do tipo “valor de entrada divergente "
-        "(Estoque.NF <> Estoque.ProdutoNF)”. Nesse caso a divergência existe nos dados da nota "
-        "no Tasy em relação à regra de fechamento do PR — não é um falso positivo do painel. "
-        "A tratativa operacional é ajustar os valores no Tasy (ou alinhar a regra com o PR) e reemitir."
+        "Por isso, na integração, o valor de cada item enviado ao PR é o valor líquido "
+        "do item no Tasy (com fallback para o valor bruto se o líquido não estiver preenchido). "
+        "O valor unitário é recalculado a partir desse líquido e da quantidade, para manter "
+        "coerência. O total da nota continua sendo o VALOR_TOTAL_NOTA do Tasy. "
+        "O campo de desconto do cabeçalho segue sendo informado no envio quando existir no Tasy."
+    )
+    doc.add_paragraph(
+        "Se, mesmo assim, o PR rejeitar com mensagem de valor divergente "
+        "(Estoque.NF <> Estoque.ProdutoNF), convém conferir no Tasy se a soma dos líquidos "
+        "dos itens elegíveis fecha com o total da nota."
     )
 
     doc.add_heading("5.4 Marcação no Tasy após sucesso (write-back)", level=2)

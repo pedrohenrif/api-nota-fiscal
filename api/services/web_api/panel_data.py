@@ -199,6 +199,37 @@ def get_nota_by_id(db: Session, nota_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def update_nota_metadata(
+    db: Session,
+    nota_id: int,
+    *,
+    nf: str | None = None,
+    fornecedor: str | None = None,
+    data_nf=None,
+) -> dict | None:
+    """Atualiza metadados espelhados do Tasy no banco auxiliar."""
+    sets: list[str] = ["updated_at = NOW()"]
+    params: dict = {"id": nota_id}
+    if nf is not None and str(nf).strip():
+        sets.append("nf = :nf")
+        params["nf"] = str(nf).strip()
+    if fornecedor is not None:
+        sets.append("fornecedor = :fornecedor")
+        params["fornecedor"] = str(fornecedor).strip() or None
+    if data_nf is not None:
+        sets.append("data_nf = :data_nf")
+        params["data_nf"] = data_nf
+
+    sql = text(
+        f"UPDATE nota_processamento SET {', '.join(sets)} WHERE id = :id"
+    )
+    result = db.execute(sql, params)
+    db.commit()
+    if result.rowcount == 0:
+        return None
+    return get_nota_by_id(db, nota_id)
+
+
 def _dashboard_where(
     *,
     estabelecimento: Optional[str] = None,

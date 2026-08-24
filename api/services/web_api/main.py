@@ -53,6 +53,7 @@ from services.web_api.schemas import (
     EmitirNotaEspecificaRequest,
     EmitirNotaRequest,
     EnviarRelatorioRequest,
+    AtualizarNotaTasyRequest,
     EstabelecimentoConfigOut,
     EstabelecimentoConfigUpdate,
     LoginRequest,
@@ -449,6 +450,63 @@ def _assert_nota_access(current_user: Usuario, nota: dict) -> None:
         )
 
 
+def _parse_data_nf(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        raw = value.strip().replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+    return None
+
+
+def _montar_detalhe_com_consulta(nota: dict, consulta: dict) -> dict:
+    detalhe = dict(nota)
+    detalhe["cd_operacao_nf"] = consulta.get("cd_operacao_nf")
+    detalhe["operacoes_liberadas"] = consulta.get("operacoes_liberadas") or []
+    detalhe["consulta_mensagem"] = None
+    detalhe["preview"] = consulta.get("preview")
+    detalhe["depara_resumo"] = None
+
+    if detalhe["preview"]:
+        try:
+            preview, resumo = enrich_preview_with_depara(
+                nota["estabelecimento"], detalhe["preview"]
+            )
+            detalhe["preview"] = preview
+            detalhe["depara_resumo"] = resumo
+        except Exception as exc:
+            detalhe["depara_resumo"] = None
+            detalhe["consulta_mensagem"] = f"Falha ao validar de-para no PR: {exc}"
+
+    if not consulta.get("encontrada"):
+        detalhe["consulta_mensagem"] = (
+            consulta.get("mensagem") or "Nota nao encontrada no Tasy."
+        )
+    elif not consulta.get("valido") and not detalhe["preview"]:
+        detalhe["consulta_mensagem"] = (
+            consulta.get("mensagem") or "Nota sem itens para exibir."
+        )
+    elif not consulta.get("valido") and detalhe["preview"]:
+        detalhe["consulta_mensagem"] = consulta.get("mensagem")
+
+    return detalhe
+
+
+def _consultar_tasy(estabelecimento: str, nr_sequencia: str) -> dict:
+    with httpx.Client(timeout=60.0) as client:
+        response = client.get(
+            f"{EXTRACTOR_URL}/notas/consultar",
+            params={"estabelecimento": estabelecimento, "nr_sequencia": nr_sequencia},
+        )
+        raise_for_extractor_response(response)
+        return response.json()
+
+
 @app.post("/notas/reemitir")
 def reemitir_nota(
     payload: ReemitirNotaRequest,
@@ -536,6 +594,109 @@ def listar_notas(
     )
 
 
+@app.post("/notas/{nota_id}/atualizar-tasy", response_model=NotaDetalheOut)
+def atualizar_nota_tasy(
+    nota_id: int,
+    payload: AtualizarNotaTasyRequest,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Puxa a nota atual do Tasy, atualiza o banco auxiliar e opcionalmente reenvia ao PR."""
+    nota = panel_data.get_nota_by_id(db, nota_id)
+    if nota is None:
+        raise HTTPException(status_code=404, detail="Nota nao encontrada")
+
+    _assert_nota_access(current_user, nota)
+
+    nr_sequencia = (nota.get("nr_sequencia") or "").strip()
+    if not nr_sequencia:
+        raise HTTPException(
+            status_code=422,
+            detail="Nota sem nr_sequencia para consulta no Tasy.",
+        )
+
+    estabelecimento = nota["estabelecimento"]
+    try:
+        consulta = _consultar_tasy(estabelecimento, nr_sequencia)
+    except HTTPException:
+        raise
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servico de extracao indisponivel. Verifique o extractor-service.",
+        )
+
+    if not consulta.get("encontrada"):
+        raise HTTPException(
+            status_code=404,
+            detail=consulta.get("mensagem") or "Nota nao encontrada no Tasy.",
+        )
+
+    preview = consulta.get("preview") or {}
+    fornecedor = None
+    if isinstance(preview.get("fornecedor"), dict):
+        fornecedor = preview["fornecedor"].get("cnpj")
+    if not fornecedor:
+        fornecedor = consulta.get("fornecedor")
+
+    data_nf = _parse_data_nf(preview.get("dataNF") or consulta.get("data_nf"))
+    nf_atualizada = (consulta.get("nf") or preview.get("nf") or nota.get("nf") or "").strip()
+
+    atualizada = panel_data.update_nota_metadata(
+        db,
+        nota_id,
+        nf=nf_atualizada or None,
+        fornecedor=fornecedor,
+        data_nf=data_nf,
+    )
+    if atualizada is None:
+        raise HTTPException(status_code=404, detail="Nota nao encontrada")
+
+    reenvio = None
+    if payload.reenviar:
+        if atualizada.get("status") not in REEMITIR_STATUS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Reenvio permitido apenas para notas com falha "
+                    "(retry_pending ou dead_letter). Dados do Tasy ja foram atualizados."
+                ),
+            )
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                response = client.post(
+                    f"{EXTRACTOR_URL}/notas/emitir-especifica",
+                    params={
+                        "estabelecimento": estabelecimento,
+                        "nr_sequencia": nr_sequencia,
+                    },
+                )
+                raise_for_extractor_response(response)
+                reenvio = response.json()
+        except HTTPException:
+            raise
+        except httpx.HTTPError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Dados atualizados, mas falha ao reenviar: extractor indisponivel.",
+            )
+
+    detalhe = _montar_detalhe_com_consulta(atualizada, consulta)
+    if reenvio is not None:
+        detalhe["consulta_mensagem"] = (
+            (detalhe.get("consulta_mensagem") or "")
+            + (" | " if detalhe.get("consulta_mensagem") else "")
+            + "Dados atualizados do Tasy e nota reenviada para processamento."
+        ).strip(" |")
+    else:
+        detalhe["consulta_mensagem"] = (
+            (detalhe.get("consulta_mensagem") or "")
+            + (" | " if detalhe.get("consulta_mensagem") else "")
+            + "Dados atualizados do Tasy no painel."
+        ).strip(" |")
+    return detalhe
+
+
 @app.get("/notas/{nota_id}/detalhe", response_model=NotaDetalheOut)
 def detalhe_nota(
     nota_id: int,
@@ -548,56 +709,36 @@ def detalhe_nota(
 
     _assert_nota_access(current_user, nota)
 
-    detalhe = dict(nota)
-    detalhe["cd_operacao_nf"] = None
-    detalhe["operacoes_liberadas"] = []
-    detalhe["consulta_mensagem"] = None
-    detalhe["preview"] = None
-    detalhe["depara_resumo"] = None
-
     nr_sequencia = (nota.get("nr_sequencia") or "").strip()
     if not nr_sequencia:
+        detalhe = dict(nota)
+        detalhe["cd_operacao_nf"] = None
+        detalhe["operacoes_liberadas"] = []
         detalhe["consulta_mensagem"] = "Nota sem nr_sequencia para consulta no Tasy."
+        detalhe["preview"] = None
+        detalhe["depara_resumo"] = None
         return detalhe
 
-    estabelecimento = nota["estabelecimento"]
     try:
-        with httpx.Client(timeout=60.0) as client:
-            response = client.get(
-                f"{EXTRACTOR_URL}/notas/consultar",
-                params={"estabelecimento": estabelecimento, "nr_sequencia": nr_sequencia},
-            )
-            raise_for_extractor_response(response)
-            consulta = response.json()
+        consulta = _consultar_tasy(nota["estabelecimento"], nr_sequencia)
     except HTTPException as exc:
+        detalhe = dict(nota)
+        detalhe["cd_operacao_nf"] = None
+        detalhe["operacoes_liberadas"] = []
         detalhe["consulta_mensagem"] = str(exc.detail)
+        detalhe["preview"] = None
+        detalhe["depara_resumo"] = None
         return detalhe
     except httpx.HTTPError:
+        detalhe = dict(nota)
+        detalhe["cd_operacao_nf"] = None
+        detalhe["operacoes_liberadas"] = []
         detalhe["consulta_mensagem"] = "Servico de extracao indisponivel."
+        detalhe["preview"] = None
+        detalhe["depara_resumo"] = None
         return detalhe
 
-    detalhe["cd_operacao_nf"] = consulta.get("cd_operacao_nf")
-    detalhe["operacoes_liberadas"] = consulta.get("operacoes_liberadas") or []
-    detalhe["preview"] = consulta.get("preview")
-    if detalhe["preview"]:
-        try:
-            preview, resumo = enrich_preview_with_depara(estabelecimento, detalhe["preview"])
-            detalhe["preview"] = preview
-            detalhe["depara_resumo"] = resumo
-        except Exception as exc:
-            detalhe["depara_resumo"] = None
-            detalhe["consulta_mensagem"] = (
-                detalhe.get("consulta_mensagem") or f"Falha ao validar de-para no PR: {exc}"
-            )
-    if not consulta.get("encontrada"):
-        detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota nao encontrada no Tasy."
-    elif not consulta.get("valido") and not detalhe["preview"]:
-        detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota sem itens para exibir."
-    elif not consulta.get("valido") and detalhe["preview"]:
-        # Mantem mensagem informativa (ex.: ja integrada no Tasy), mas com dados visiveis.
-        detalhe["consulta_mensagem"] = consulta.get("mensagem")
-
-    return detalhe
+    return _montar_detalhe_com_consulta(nota, consulta)
 
 
 @app.get("/admin/logs", response_model=NotaStatusPageOut)

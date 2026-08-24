@@ -47,6 +47,12 @@ class ReemitirNotaRequest(BaseModel):
     id: int
 
 
+class AtualizarNotaTasyRequest(BaseModel):
+    """reenviar=true tambem republica a nota na fila (somente status de falha)."""
+
+    reenviar: bool = False
+
+
 class NotaConsultaLocalEstoqueOut(BaseModel):
     cd_local_estoque: str
     qtd_itens: int

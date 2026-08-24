@@ -235,7 +235,13 @@ export default function Logs() {
         />
       </div>
 
-      <NotaDetalheModal nota={notaSelecionada} onClose={() => setNotaSelecionada(null)} />
+      <NotaDetalheModal
+        nota={notaSelecionada}
+        onClose={() => setNotaSelecionada(null)}
+        onAtualizado={() => {
+          if (jaPesquisou) void carregarLogs(page);
+        }}
+      />
     </div>
   );
 }

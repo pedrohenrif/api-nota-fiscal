@@ -1,5 +1,5 @@
 import { api } from "../api";
-import type { NotaStatus } from "../types";
+import type { NotaDetalhe, NotaStatus } from "../types";
 
 export const REEMITIR_STATUS = new Set(["retry_pending", "dead_letter"]);
 
@@ -9,6 +9,16 @@ export function podeReemitir(nota: NotaStatus): boolean {
 
 export function reemitirNota(id: number): Promise<void> {
   return api("/notas/reemitir", { method: "POST", body: { id } });
+}
+
+export function atualizarNotaDoTasy(
+  id: number,
+  reenviar = false
+): Promise<NotaDetalhe> {
+  return api<NotaDetalhe>(`/notas/${id}/atualizar-tasy`, {
+    method: "POST",
+    body: { reenviar },
+  });
 }
 
 export function formatRetornoPr(nota: NotaStatus): {

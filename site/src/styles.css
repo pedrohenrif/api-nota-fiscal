@@ -1076,6 +1076,11 @@ select:focus {
   color: var(--brand);
 }
 
+.detalhe-total-divergente {
+  background: #fee2e2;
+  border-color: rgba(185, 28, 28, 0.35);
+}
+
 .detalhe-empty {
   margin-top: 8px;
 }

@@ -51,7 +51,11 @@ def client_ip(request: Request) -> str:
 
 
 def resolve_action(method: str, path: str) -> str:
+    if method == "POST" and path.rstrip("/").endswith("/atualizar-tasy"):
+        return "atualizar_nota_tasy"
     for m, prefix, action in _ACTION_MAP:
+        if action == "atualizar_nota_tasy":
+            continue
         if method == m and (path == prefix or path.startswith(prefix)):
             return action
     return f"{method.lower()}_{path.strip('/').replace('/', '_') or 'root'}"[:80]

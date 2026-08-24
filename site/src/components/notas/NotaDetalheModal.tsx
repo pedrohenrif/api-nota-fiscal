@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { formatData, formatDataHora, formatMoeda, formatNumero } from "../../lib/format";
+import { atualizarNotaDoTasy, podeReemitir } from "../../lib/notas";
 import type { DeparaStatus, NotaDetalhe, NotaStatus, ProdutoNF } from "../../types";
 import Modal from "../ui/Modal";
 
 interface NotaDetalheModalProps {
   nota: NotaStatus | null;
   onClose: () => void;
+  onAtualizado?: () => void;
 }
 
 function DeparaBadge({ depara }: { depara?: DeparaStatus | null }) {
@@ -41,21 +43,29 @@ function itemComFalhaDepara(produto: ProdutoNF): boolean {
   return produto.depara != null && produto.depara.status !== "ok";
 }
 
-export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProps) {
+export default function NotaDetalheModal({
+  nota,
+  onClose,
+  onAtualizado,
+}: NotaDetalheModalProps) {
   const [detalhe, setDetalhe] = useState<NotaDetalhe | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!nota) {
       setDetalhe(null);
       setErro(null);
+      setInfo(null);
       return;
     }
 
     let ativo = true;
     setCarregando(true);
     setErro(null);
+    setInfo(null);
     setDetalhe(null);
 
     void api<NotaDetalhe>(`/notas/${nota.id}/detalhe`)
@@ -76,17 +86,41 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
 
   const preview = detalhe?.preview;
   const integradaPr = detalhe?.status === "sent";
+  const podeFalhou = detalhe ? podeReemitir(detalhe) : false;
   const msgConsulta = detalhe?.consulta_mensagem ?? "";
   const msgTasyIntegrada = /dt_integracao|integrada no tasy/i.test(msgConsulta);
   const somaItens = useMemo(
     () => (preview?.produtos ?? []).reduce((acc, item) => acc + (item.valor ?? 0), 0),
     [preview]
   );
+  const divergenciaTotais =
+    preview != null && Math.abs(somaItens - (preview.valorTotal ?? 0)) > 0.009;
 
   const itensSemDepara = useMemo(
     () => (preview?.produtos ?? []).filter(itemComFalhaDepara),
     [preview]
   );
+
+  const atualizarDoTasy = async (reenviar: boolean) => {
+    if (!nota) return;
+    setAtualizando(true);
+    setErro(null);
+    setInfo(null);
+    try {
+      const result = await atualizarNotaDoTasy(nota.id, reenviar);
+      setDetalhe(result);
+      setInfo(
+        reenviar
+          ? "Dados atualizados do Tasy e nota reenviada para a fila."
+          : "Dados atualizados do Tasy no painel. Se a nota estiver com erro, use Reenviar para processar de novo."
+      );
+      onAtualizado?.();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao atualizar do Tasy");
+    } finally {
+      setAtualizando(false);
+    }
+  };
 
   return (
     <Modal
@@ -95,17 +129,41 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
       onClose={onClose}
       xl
       footer={
-        <button type="button" className="btn-primary" onClick={onClose}>
-          Fechar
-        </button>
+        <>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={atualizando || carregando || !nota?.nr_sequencia}
+            onClick={() => void atualizarDoTasy(false)}
+            title="Puxa NF, fornecedor, data e itens atuais do Tasy e atualiza o painel"
+          >
+            {atualizando ? "Atualizando..." : "Atualizar do Tasy"}
+          </button>
+          {podeFalhou ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={atualizando || carregando}
+              onClick={() => void atualizarDoTasy(true)}
+              title="Atualiza do Tasy e republica na fila de integração"
+            >
+              Atualizar e reenviar
+            </button>
+          ) : null}
+          <button type="button" className="btn-primary" onClick={onClose}>
+            Fechar
+          </button>
+        </>
       }
     >
       {carregando ? (
         <p className="detalhe-loading">Carregando detalhes e validando de-para no PR...</p>
-      ) : erro ? (
+      ) : !detalhe && erro ? (
         <div className="alert-error">{erro}</div>
       ) : detalhe ? (
         <>
+          {erro ? <div className="alert-error">{erro}</div> : null}
+          {info ? <div className="alert-success">{info}</div> : null}
           <div className="detalhe-status-row">
             <span className={`status status-${detalhe.status}`}>{detalhe.status}</span>
             <span className="detalhe-meta">
@@ -275,12 +333,24 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
 
               <section className="detalhe-section detalhe-totals">
                 <h3 className="detalhe-section-title">Totais</h3>
+                {divergenciaTotais ? (
+                  <div className="alert-error" style={{ marginBottom: 12 }}>
+                    Soma dos itens ({formatMoeda(somaItens)}) diverge do total da NF (
+                    {formatMoeda(preview.valorTotal)}). Confira o ajuste no Tasy e use{" "}
+                    <strong>Atualizar do Tasy</strong>
+                    {podeFalhou ? " / Atualizar e reenviar" : ""}.
+                  </div>
+                ) : null}
                 <div className="detalhe-totals-grid">
                   <div className="detalhe-total-card">
                     <span>Soma dos itens</span>
                     <strong>{formatMoeda(somaItens)}</strong>
                   </div>
-                  <div className="detalhe-total-card detalhe-total-highlight">
+                  <div
+                    className={`detalhe-total-card detalhe-total-highlight${
+                      divergenciaTotais ? " detalhe-total-divergente" : ""
+                    }`}
+                  >
                     <span>Valor total da NF</span>
                     <strong>{formatMoeda(preview.valorTotal)}</strong>
                   </div>

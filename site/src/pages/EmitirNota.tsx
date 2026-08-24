@@ -197,7 +197,13 @@ export default function EmitirNota() {
         }}
       />
 
-      <NotaDetalheModal nota={notaSelecionada} onClose={() => setNotaSelecionada(null)} />
+      <NotaDetalheModal
+        nota={notaSelecionada}
+        onClose={() => setNotaSelecionada(null)}
+        onAtualizado={() => {
+          if (jaPesquisou) void carregarNotas();
+        }}
+      />
     </div>
   );
 }
