@@ -593,6 +593,9 @@ def detalhe_nota(
         detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota nao encontrada no Tasy."
     elif not consulta.get("valido") and not detalhe["preview"]:
         detalhe["consulta_mensagem"] = consulta.get("mensagem") or "Nota sem itens para exibir."
+    elif not consulta.get("valido") and detalhe["preview"]:
+        # Mantem mensagem informativa (ex.: ja integrada no Tasy), mas com dados visiveis.
+        detalhe["consulta_mensagem"] = consulta.get("mensagem")
 
     return detalhe
 

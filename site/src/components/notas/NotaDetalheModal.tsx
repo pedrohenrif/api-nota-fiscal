@@ -75,6 +75,9 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
   }, [nota]);
 
   const preview = detalhe?.preview;
+  const integradaPr = detalhe?.status === "sent";
+  const msgConsulta = detalhe?.consulta_mensagem ?? "";
+  const msgTasyIntegrada = /dt_integracao|integrada no tasy/i.test(msgConsulta);
   const somaItens = useMemo(
     () => (preview?.produtos ?? []).reduce((acc, item) => acc + (item.valor ?? 0), 0),
     [preview]
@@ -108,12 +111,26 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
             <span className="detalhe-meta">
               Tentativas: <strong>{detalhe.tentativas}</strong>
             </span>
-            {detalhe.erro ? (
+            {detalhe.erro && !integradaPr ? (
               <span className="detalhe-erro-inline" title={detalhe.erro}>
                 {detalhe.erro}
               </span>
             ) : null}
           </div>
+
+          {integradaPr ? (
+            <div className="alert-success">
+              Integrada no PR com sucesso.
+              {msgTasyIntegrada ? (
+                <p className="depara-resumo-hint">
+                  Write-back no Tasy concluído (`dt_integracao` preenchida).
+                </p>
+              ) : null}
+              {detalhe.pr_id ? (
+                <p className="depara-resumo-hint">PR ID: {detalhe.pr_id}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           {detalhe.depara_resumo && detalhe.depara_resumo.falha > 0 ? (
             <div className="depara-resumo-alert">
@@ -137,6 +154,10 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
                 </p>
               ) : null}
             </div>
+          ) : null}
+
+          {!integradaPr && detalhe.consulta_mensagem && !preview ? (
+            <div className="alert-error">{detalhe.consulta_mensagem}</div>
           ) : null}
 
           <section className="detalhe-section">
@@ -271,9 +292,11 @@ export default function NotaDetalheModal({ nota, onClose }: NotaDetalheModalProp
               </section>
             </>
           ) : (
-            <div className="alert-error detalhe-empty">
-              {detalhe.consulta_mensagem ??
-                "Não foi possível carregar os itens desta nota no Tasy."}
+            <div className={`detalhe-empty ${integradaPr ? "alert-success" : "alert-error"}`}>
+              {integradaPr
+                ? "Integrada no PR. Não foi possível carregar os itens no Tasy neste momento."
+                : detalhe.consulta_mensagem ??
+                  "Não foi possível carregar os itens desta nota no Tasy."}
             </div>
           )}
         </>

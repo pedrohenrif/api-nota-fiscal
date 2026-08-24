@@ -268,17 +268,20 @@ def consult_note_by_nr_sequencia(
         "qtd_itens": len(item_rows),
     }
 
-    if validation.valido and item_rows:
+    if item_rows:
+        # Preview para exibicao no painel mesmo se a nota nao for elegivel
+        # (ex.: dt_integracao preenchida apos sucesso no PR). Emissao ainda exige valido=true.
         resposta["preview"] = _build_note_payload(
             estabelecimento=estabelecimento,
             note_row=note_row,
             item_rows=item_rows,
             db_client=oracle,
         ).model_dump(mode="json")
-    elif validation.valido and not item_rows:
+    elif not item_rows:
         diagnostico = _fetch_items_diagnostico(oracle, _g(note_row, "NR_SEQUENCIA"))
-        resposta["valido"] = False
-        resposta["mensagem"] = _mensagem_sem_itens_elegiveis(diagnostico)
+        if validation.valido:
+            resposta["valido"] = False
+            resposta["mensagem"] = _mensagem_sem_itens_elegiveis(diagnostico)
         resposta["qtd_itens_total"] = len(diagnostico)
         resposta["itens_diagnostico"] = diagnostico
         contagem: dict[str, int] = {}
