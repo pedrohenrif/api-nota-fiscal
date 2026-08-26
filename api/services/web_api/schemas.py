@@ -94,6 +94,7 @@ class DeparaStatusOut(BaseModel):
     status: Literal["ok", "vazio", "erro"]
     codProdTasy: str
     codProdPR: Optional[str] = None
+    controleDeLote: bool = False
     mensagem: Optional[str] = None
 
 

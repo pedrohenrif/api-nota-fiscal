@@ -128,6 +128,7 @@ export interface DeparaStatus {
   status: "ok" | "vazio" | "erro";
   codProdTasy: string;
   codProdPR?: string | null;
+  controleDeLote?: boolean;
   mensagem?: string | null;
 }
 

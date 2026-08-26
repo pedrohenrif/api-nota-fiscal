@@ -28,6 +28,8 @@ def classify_error_tipo(message: str | None) -> str | None:
             "sem lote",
             "necessidade de lote",
             "lotenf",
+            "controle de lote",
+            "controledelote",
             "observacao field is required",
         )
     ) or ("lote" in text and "obrigat" in text):
@@ -42,6 +44,8 @@ def classify_error_tipo(message: str | None) -> str | None:
             "ja integrada",
             "já integrada",
             "produto informado",
+            "datetime",
+            "validade",
         )
     ):
         return "retorno_pr"

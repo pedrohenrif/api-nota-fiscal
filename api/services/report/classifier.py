@@ -190,12 +190,20 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
                 if depara["status"] != "ok":
                     itens_sem_depara.append(cod)
                     desc_sem_depara.append(ds)
+                    continue
 
-                nr_item = _g(item, "NR_ITEM_NF")
-                lots = _fetch_item_lots(oracle, nr_sequencia, nr_item)
-                has_lote = any(_to_str(_g(lot, "LOTE")) for lot in lots)
-                if not has_lote:
-                    itens_sem_lote.append(f"Item {nr_item} (material {cod}) sem lote")
+                # So exige lote completo quando o PR marca ControleDeLote=true.
+                if depara.get("controleDeLote"):
+                    nr_item = _g(item, "NR_ITEM_NF")
+                    lots = _fetch_item_lots(oracle, nr_sequencia, nr_item)
+                    has_lote_completo = any(
+                        _to_str(_g(lot, "LOTE")) and _g(lot, "DT_VALIDADE") is not None
+                        for lot in lots
+                    )
+                    if not has_lote_completo:
+                        itens_sem_lote.append(
+                            f"Item {nr_item} (material {cod}) exige lote/validade no PR"
+                        )
 
             # Prioridade exclusiva: sem de-para > sem lote > nao integrada.
             # Evita a mesma nota aparecer em mais de uma secao do e-mail.

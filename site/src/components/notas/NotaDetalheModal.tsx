@@ -18,8 +18,14 @@ function DeparaBadge({ depara }: { depara?: DeparaStatus | null }) {
 
   if (depara.status === "ok") {
     return (
-      <span className="depara-badge depara-ok" title={`Código PR: ${depara.codProdPR}`}>
+      <span
+        className="depara-badge depara-ok"
+        title={`Código PR: ${depara.codProdPR}${
+          depara.controleDeLote ? " · Controle de lote: sim" : " · Controle de lote: não"
+        }`}
+      >
         OK → {depara.codProdPR}
+        {depara.controleDeLote ? " · lote" : ""}
       </span>
     );
   }

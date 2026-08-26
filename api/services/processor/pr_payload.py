@@ -101,17 +101,36 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
         produto.pop("depara", None)
         produto.pop("codProdTasy", None)
         produto.pop("codProdPR", None)
+        produto.pop("controleDeLote", None)
         produto["codProd"] = str(produto.get("codProd") or "").strip()
+
+        lots_out: list[dict[str, Any]] = []
         for lote in produto.get("loteNF") or []:
-            if "qtdLote" in lote:
-                lote["qtdLote"] = _to_int(lote.get("qtdLote"))
-            if lote.get("validade") is not None:
-                formatted = format_pr_datetime(lote["validade"])
-                if formatted is not None:
-                    lote["validade"] = formatted
-            observacao = lote.get("observacao")
+            lote_norm = dict(lote)
+            if "qtdLote" in lote_norm:
+                lote_norm["qtdLote"] = _to_int(lote_norm.get("qtdLote"))
+
+            # Nunca enviar validade vazia — o PR (.NET) quebra com String '' DateTime.
+            validade_raw = lote_norm.get("validade")
+            if validade_raw is None or (
+                isinstance(validade_raw, str) and not validade_raw.strip()
+            ):
+                lote_norm.pop("validade", None)
+            else:
+                formatted = format_pr_datetime(validade_raw)
+                if formatted is None:
+                    lote_norm.pop("validade", None)
+                else:
+                    lote_norm["validade"] = formatted
+
+            observacao = lote_norm.get("observacao")
             if observacao is None or not str(observacao).strip():
-                lote["observacao"] = _LOTE_OBSERVACAO_DEFAULT
+                lote_norm["observacao"] = _LOTE_OBSERVACAO_DEFAULT
+
+            lote_norm["lote"] = str(lote_norm.get("lote") or "").strip()
+            lots_out.append(lote_norm)
+
+        produto["loteNF"] = lots_out
 
     return normalized
 
