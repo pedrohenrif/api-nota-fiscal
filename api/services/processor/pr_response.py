@@ -1,6 +1,26 @@
+import unicodedata
 from typing import Any
 
 import httpx
+
+
+def _normalize_text(value: str) -> str:
+    decomposed = unicodedata.normalize("NFD", value.casefold())
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
+
+
+def is_pr_already_integrated_error(message: str | None) -> bool:
+    """PR ja possui a NF+fornecedor (HTTP 400 negocio) — nao e falha de integracao."""
+    if not message or not str(message).strip():
+        return False
+    text = _normalize_text(str(message))
+    if "integracao.estoque.nf" in text and "movimento" in text:
+        return True
+    if "ja existe um lancamento" in text and "fornecedor" in text:
+        return True
+    if "mesma nf" in text and "fornecedor" in text and "ja existe" in text:
+        return True
+    return False
 
 
 def _join_messages(value: Any) -> str | None:
@@ -89,7 +109,11 @@ def extract_pr_success_info(data: Any) -> dict[str, Any] | None:
             pr_id = None
 
     mensagem = _join_messages(data.get("mensagem")) or _join_messages(data.get("message"))
-    return {"pr_id": pr_id, "pr_mensagem": mensagem}
+    return {
+        "pr_id": pr_id,
+        "pr_mensagem": mensagem,
+        "ja_existia_no_pr": bool(data.get("jaExistiaNoPR")),
+    }
 
 
 def format_http_error(response: httpx.Response) -> str:
@@ -109,7 +133,17 @@ def format_http_error(response: httpx.Response) -> str:
 
 def parse_pr_response(response: httpx.Response) -> Any:
     if response.is_error:
-        raise ValueError(format_http_error(response))
+        http_error = format_http_error(response)
+        if is_pr_already_integrated_error(http_error):
+            return {
+                "sucesso": True,
+                "jaExistiaNoPR": True,
+                "mensagem": (
+                    "Ja existe lancamento no PR com a mesma NF e FORNECEDOR; "
+                    "tratado como integrado."
+                ),
+            }
+        raise ValueError(http_error)
 
     if not response.content:
         return {"status": "ok"}
@@ -117,6 +151,15 @@ def parse_pr_response(response: httpx.Response) -> Any:
     data = response.json()
     message = _extract_business_error(data)
     if message:
+        if is_pr_already_integrated_error(message):
+            return {
+                "sucesso": True,
+                "jaExistiaNoPR": True,
+                "mensagem": (
+                    "Ja existe lancamento no PR com a mesma NF e FORNECEDOR; "
+                    "tratado como integrado."
+                ),
+            }
         raise ValueError(f"PR: {message}")
 
     return data

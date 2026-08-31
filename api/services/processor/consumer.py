@@ -102,15 +102,31 @@ def process_payload(payload: dict) -> str:
         mapped_payload = apply_depara_rules(payload)
         pr_result = send_to_pr(mapped_payload)
         success_info = extract_pr_success_info(pr_result) or {}
+        ja_existia_no_pr = bool(success_info.get("ja_existia_no_pr"))
+        if ja_existia_no_pr:
+            logger.info(
+                "PR ja possui NF+fornecedor — write-back Tasy e status sent nf=%s seq=%s",
+                nf,
+                meta.get("nr_sequencia"),
+            )
 
         tasy_warning = None
         try:
             mark_tasy_integrated(meta.get("nr_sequencia"))
         except Exception as writeback_exc:
             tasy_warning = str(writeback_exc)
-            logger.error("PR OK, mas write-back Tasy falhou: %s", tasy_warning)
+            logger.error(
+                "PR OK (ja_existia=%s), mas write-back Tasy falhou: %s",
+                ja_existia_no_pr,
+                tasy_warning,
+            )
 
         pr_mensagem = success_info.get("pr_mensagem")
+        if ja_existia_no_pr and not pr_mensagem:
+            pr_mensagem = (
+                "Ja existe lancamento no PR com a mesma NF e FORNECEDOR; "
+                "tratado como integrado."
+            )
         if tasy_warning:
             pr_mensagem = (
                 f"{pr_mensagem or 'Nota gravada no PR'}; "
