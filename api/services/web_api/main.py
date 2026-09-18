@@ -17,7 +17,6 @@ from services.common.estab_config import (
 )
 from services.common.report_recipients import (
     create_recipient,
-    delete_recipient,
     ensure_report_recipients_table,
     list_recipients,
     update_recipient,
@@ -1008,20 +1007,10 @@ def excluir_destinatario(
     recipient_id: int,
     current_user: Usuario = Depends(get_current_user),
 ) -> None:
-    allowed = (
-        None
-        if is_global_admin(current_user.role) or current_user.role == "dev"
-        else current_user.estabelecimento
+    raise HTTPException(
+        status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+        detail="Exclusao desabilitada. Use PATCH com ativo=false para inativar o destinatario.",
     )
-    try:
-        delete_recipient(
-            recipient_id=recipient_id,
-            allowed_estabelecimento=allowed,
-        )
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @app.get("/admin/estabelecimentos/config", response_model=list[EstabelecimentoConfigOut])

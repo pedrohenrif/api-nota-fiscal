@@ -8,6 +8,7 @@ export default function Usuarios() {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
   const allowedRoles = useMemo(() => creatableRoles(user?.role), [user?.role]);
   const [username, setUsername] = useState("");
@@ -21,11 +22,14 @@ export default function Usuarios() {
   const [salvando, setSalvando] = useState(false);
 
   const carregarUsuarios = useCallback(async () => {
+    setCarregando(true);
     try {
       const lista = await api<Usuario[]>("/usuarios");
       setUsuarios(lista);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao carregar usuários");
+    } finally {
+      setCarregando(false);
     }
   }, []);
 
@@ -71,7 +75,7 @@ export default function Usuarios() {
       setUsername("");
       setEmail("");
       setPassword("");
-      setRole("usuario");
+      setRole(allowedRoles.includes("usuario") ? "usuario" : allowedRoles[0]);
       await carregarUsuarios();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao criar usuário");
@@ -85,81 +89,114 @@ export default function Usuarios() {
       <h1>Usuários</h1>
       <p className="page-lead">
         {isGlobalAdmin(user?.role)
-          ? "Cadastro global de usuários (incluindo adm local e dev)."
-          : `Cadastro de usuários da unidade ${user?.estabelecimento ?? ""}.`}
+          ? "Cadastro global de usuários (incluindo adm local e dev). Informe o e-mail para permitir recuperação de senha."
+          : `Cadastro de usuários da unidade ${user?.estabelecimento ?? ""}. Informe o e-mail para recuperação de senha.`}
       </p>
 
       <div className="card">
-        <h2>Novo usuário</h2>
-        <form className="form-grid" onSubmit={criar}>
-          <label>
-            Usuário
-            <input value={username} onChange={(e) => setUsername(e.target.value)} required />
-          </label>
-          <label>
-            E-mail (para recuperar senha)
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="opcional, mas recomendado"
-            />
-          </label>
-          <label>
-            Senha inicial
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-          <label>
-            Papel
-            <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-              {allowedRoles.map((r) => (
-                <option key={r} value={r}>
-                  {roleLabel(r)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {needsEstab && isGlobalAdmin(user?.role) && (
-            <label>
-              Estabelecimento
-              <select
-                value={estabelecimento}
-                onChange={(e) => setEstabelecimento(e.target.value)}
-              >
-                {estabelecimentos.map((est) => (
-                  <option key={est} value={est}>
-                    {est}
+        <div className="card-header">
+          <div>
+            <h2>Novo usuário</h2>
+            <p className="card-subtitle">Preencha os dados e clique em criar</p>
+          </div>
+        </div>
+
+        <form className="usuarios-form" onSubmit={criar}>
+          <div className="filters-grid">
+            <label className="filter-field">
+              <span className="filter-label">Usuário</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="login"
+                required
+                autoComplete="off"
+              />
+            </label>
+            <label className="filter-field">
+              <span className="filter-label">E-mail</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="opcional, recomendado"
+                autoComplete="off"
+              />
+            </label>
+            <label className="filter-field">
+              <span className="filter-label">Senha inicial</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="filter-field">
+              <span className="filter-label">Papel</span>
+              <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+                {allowedRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {roleLabel(r)}
                   </option>
                 ))}
               </select>
             </label>
-          )}
-          {needsEstab && !isGlobalAdmin(user?.role) && (
-            <div className="estab-fixed">
-              Estabelecimento: <strong>{user?.estabelecimento}</strong>
-            </div>
-          )}
+            {needsEstab && isGlobalAdmin(user?.role) ? (
+              <label className="filter-field">
+                <span className="filter-label">Estabelecimento</span>
+                <select
+                  value={estabelecimento}
+                  onChange={(e) => setEstabelecimento(e.target.value)}
+                >
+                  {estabelecimentos.map((est) => (
+                    <option key={est} value={est}>
+                      {est}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {needsEstab && !isGlobalAdmin(user?.role) ? (
+              <div className="filter-field">
+                <span className="filter-label">Estabelecimento</span>
+                <div className="estab-fixed" style={{ paddingTop: 8 }}>
+                  <strong>{user?.estabelecimento}</strong>
+                </div>
+              </div>
+            ) : null}
+            {!needsEstab ? (
+              <div className="filter-field">
+                <span className="filter-label">Estabelecimento</span>
+                <div className="estab-fixed" style={{ paddingTop: 8 }}>
+                  <strong>Todos</strong> (papel global)
+                </div>
+              </div>
+            ) : null}
+          </div>
 
-          <div className="form-actions">
+          <div className="filters-actions">
             <button className="btn-primary" type="submit" disabled={salvando}>
               {salvando ? "Salvando..." : "Criar usuário"}
             </button>
           </div>
         </form>
 
-        {mensagem && <div className="alert-success">{mensagem}</div>}
-        {erro && <div className="alert-error">{erro}</div>}
+        {mensagem ? <div className="alert-success">{mensagem}</div> : null}
+        {erro ? <div className="alert-error">{erro}</div> : null}
       </div>
 
-      <div className="card">
-        <h2>Cadastrados</h2>
-        <div className="table-wrap">
-          <table>
+      <div className="card card-table">
+        <div className="card-header">
+          <div>
+            <h2>Cadastrados</h2>
+            <p className="card-subtitle">{usuarios.length} usuário(s)</p>
+          </div>
+        </div>
+
+        <div className="table-scroll">
+          <table className="table table-usuarios">
             <thead>
               <tr>
                 <th>Usuário</th>
@@ -169,14 +206,32 @@ export default function Usuarios() {
               </tr>
             </thead>
             <tbody>
-              {usuarios.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>{u.email || "—"}</td>
-                  <td>{roleLabel(u.role)}</td>
-                  <td>{u.estabelecimento || "Todos"}</td>
+              {carregando ? (
+                <tr>
+                  <td colSpan={4} className="empty">
+                    Carregando...
+                  </td>
                 </tr>
-              ))}
+              ) : usuarios.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="empty">
+                    Nenhum usuário cadastrado.
+                  </td>
+                </tr>
+              ) : (
+                usuarios.map((u) => (
+                  <tr key={u.id}>
+                    <td>
+                      <strong>{u.username}</strong>
+                    </td>
+                    <td className="cell-email">{u.email || "—"}</td>
+                    <td>
+                      <span className={`role-pill role-pill--${u.role}`}>{roleLabel(u.role)}</span>
+                    </td>
+                    <td>{u.estabelecimento || "Todos"}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

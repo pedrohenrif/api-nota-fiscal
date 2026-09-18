@@ -125,22 +125,6 @@ export default function Destinatarios() {
     }
   };
 
-  const excluir = async (id: number, email: string) => {
-    if (!window.confirm(`Excluir o e-mail ${email}?`)) return;
-    setSalvando(true);
-    setErro(null);
-    setMensagem(null);
-    try {
-      await api(`/destinatarios/${id}`, { method: "DELETE" });
-      setMensagem("E-mail excluído.");
-      await carregar(canPickEstab ? selecionado || undefined : undefined);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : "Falha ao excluir");
-    } finally {
-      setSalvando(false);
-    }
-  };
-
   const tituloEstab = canPickEstab ? selecionado : (user?.estabelecimento ?? "—");
   const colCount = canPickEstab ? 5 : 4;
 
@@ -148,8 +132,8 @@ export default function Destinatarios() {
     <div className="page">
       <h1>Destinatários de e-mail</h1>
       <p className="page-lead">
-        Gerencie quem recebe o relatório automático de notas. Inative um e-mail para parar o
-        envio sem apagar o cadastro.{" "}
+        Gerencie quem recebe o relatório automático. Não é possível excluir: use{" "}
+        <strong>Inativar</strong> para parar o envio sem apagar o cadastro.{" "}
         {canPickEstab
           ? "Admin/dev podem gerenciar todas as unidades."
           : "Você só vê e altera os e-mails do seu estabelecimento."}
@@ -304,14 +288,6 @@ export default function Destinatarios() {
                               onClick={() => void alternarAtivo(item)}
                             >
                               {item.ativo ? "Inativar" : "Reativar"}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-danger-text"
-                              disabled={salvando}
-                              onClick={() => void excluir(item.id, item.email)}
-                            >
-                              Excluir
                             </button>
                           </div>
                         )}

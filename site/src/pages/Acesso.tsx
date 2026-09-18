@@ -100,8 +100,11 @@ export default function Acesso() {
 
   return (
     <div className="page">
-      <h1>Acessos e auditoria</h1>
-      <p className="page-lead">Visível apenas para administradores.</p>
+      <h1>Auditoria</h1>
+      <p className="page-lead">
+        Registro de acessos e ações no painel (IP, usuário, rota e status). Visível apenas para o
+        perfil Dev.
+      </p>
 
       <div className="card">
         <p className="help-text">

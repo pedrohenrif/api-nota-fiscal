@@ -1263,6 +1263,73 @@ select:focus {
   min-width: 240px;
 }
 
+.usuarios-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.table-usuarios {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table-usuarios th:nth-child(1),
+.table-usuarios td:nth-child(1) {
+  width: 18%;
+}
+
+.table-usuarios th:nth-child(2),
+.table-usuarios td:nth-child(2) {
+  width: 36%;
+}
+
+.table-usuarios th:nth-child(3),
+.table-usuarios td:nth-child(3) {
+  width: 18%;
+}
+
+.table-usuarios th:nth-child(4),
+.table-usuarios td:nth-child(4) {
+  width: 28%;
+}
+
+.table-usuarios .cell-email {
+  word-break: break-word;
+  color: var(--text);
+}
+
+.role-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(100, 116, 139, 0.14);
+  color: #475569;
+  white-space: nowrap;
+}
+
+.role-pill--adm {
+  background: rgba(127, 29, 29, 0.12);
+  color: #7f1d1d;
+}
+
+.role-pill--adm_local {
+  background: rgba(180, 83, 9, 0.12);
+  color: #9a3412;
+}
+
+.role-pill--dev {
+  background: rgba(30, 64, 175, 0.12);
+  color: #1e40af;
+}
+
+.role-pill--usuario {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
 .actions-inline {
   display: inline-flex;
   align-items: center;

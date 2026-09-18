@@ -100,8 +100,9 @@ export default function Ajuda() {
           <h2>E-mails do relatório</h2>
           <ul>
             <li>
-              Em <strong>Destinatários</strong> você adiciona, edita, <strong>inativa</strong> ou
-              remove quem recebe o relatório.
+              Em <strong>Destinatários</strong> você adiciona, edita ou{" "}
+              <strong>inativa</strong> quem recebe o relatório. Não há exclusão — inativar
+              para o envio sem apagar o cadastro.
             </li>
             <li>
               Inativar mantém o cadastro, mas o e-mail deixa de receber até reativar.
@@ -173,12 +174,13 @@ export default function Ajuda() {
 
         {seesAcesso ? (
           <section className="card help-card">
-            <h2>Acessos (somente dev)</h2>
+            <h2>Auditoria (somente Dev)</h2>
             <ul>
               <li>
-                Auditoria de quem entrou no painel: IP, usuário, ação, data e status HTTP.
+                Registro de quem entrou no painel: IP, usuário, ação, data e status HTTP.
               </li>
               <li>Use filtros de data/perfil/ação para investigar.</li>
+              <li>O bloco de filas RabbitMQ no Dashboard também é exclusivo do Dev.</li>
             </ul>
           </section>
         ) : null}

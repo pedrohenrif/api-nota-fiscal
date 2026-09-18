@@ -32,7 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/destinatarios">Destinatários</NavLink>
             {canManageUsers(user?.role) && <NavLink to="/usuarios">Usuários</NavLink>}
             {canSeeLogs(user?.role) && <NavLink to="/logs">Logs</NavLink>}
-            {canSeeAcesso(user?.role) && <NavLink to="/acesso">Acessos</NavLink>}
+            {canSeeAcesso(user?.role) && <NavLink to="/acesso">Auditoria</NavLink>}
             {canManageConfig(user?.role) && (
               <NavLink to="/configuracoes">Configurações</NavLink>
             )}
