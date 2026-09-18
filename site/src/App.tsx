@@ -38,7 +38,7 @@ export default function App() {
       <Route
         path="/usuarios"
         element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute usersManagerOnly>
             <Layout>
               <Usuarios />
             </Layout>
@@ -48,7 +48,7 @@ export default function App() {
       <Route
         path="/logs"
         element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute logsAllowed>
             <Layout>
               <Logs />
             </Layout>
@@ -58,7 +58,7 @@ export default function App() {
       <Route
         path="/acesso"
         element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute acessoOnly>
             <Layout>
               <Acesso />
             </Layout>
@@ -68,7 +68,7 @@ export default function App() {
       <Route
         path="/configuracoes"
         element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute configOnly>
             <Layout>
               <Configuracoes />
             </Layout>

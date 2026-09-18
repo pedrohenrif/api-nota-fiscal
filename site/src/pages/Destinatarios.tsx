@@ -2,18 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatDataHora } from "../lib/format";
+import { isDev, isGlobalAdmin } from "../lib/roles";
 
 interface Destinatario {
   id: number;
   estabelecimento: string;
   email: string;
+  ativo: boolean;
   created_at?: string | null;
   updated_at?: string | null;
 }
 
 export default function Destinatarios() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "adm";
+  const canPickEstab = isGlobalAdmin(user?.role) || isDev(user?.role);
 
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
   const [selecionado, setSelecionado] = useState("");
@@ -45,7 +47,7 @@ export default function Destinatarios() {
     api<string[]>("/estabelecimentos")
       .then((lista) => {
         setEstabelecimentos(lista);
-        const inicial = isAdmin
+        const inicial = canPickEstab
           ? lista[0] || ""
           : user?.estabelecimento || lista[0] || "";
         setSelecionado(inicial);
@@ -55,12 +57,12 @@ export default function Destinatarios() {
         setErro(err instanceof Error ? err.message : "Erro");
         setCarregando(false);
       });
-  }, [isAdmin, user?.estabelecimento]);
+  }, [canPickEstab, user?.estabelecimento]);
 
   useEffect(() => {
     if (!pronto) return;
-    void carregar(isAdmin ? selecionado || undefined : undefined);
-  }, [carregar, isAdmin, pronto, selecionado]);
+    void carregar(canPickEstab ? selecionado || undefined : undefined);
+  }, [carregar, canPickEstab, pronto, selecionado]);
 
   const adicionar = async () => {
     setSalvando(true);
@@ -71,12 +73,13 @@ export default function Destinatarios() {
         method: "POST",
         body: {
           email: novoEmail,
-          ...(isAdmin ? { estabelecimento: selecionado } : {}),
+          ativo: true,
+          ...(canPickEstab ? { estabelecimento: selecionado } : {}),
         },
       });
       setNovoEmail("");
       setMensagem("E-mail adicionado.");
-      await carregar(isAdmin ? selecionado || undefined : undefined);
+      await carregar(canPickEstab ? selecionado || undefined : undefined);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao adicionar");
     } finally {
@@ -96,9 +99,27 @@ export default function Destinatarios() {
       setEditandoId(null);
       setEditEmail("");
       setMensagem("E-mail atualizado.");
-      await carregar(isAdmin ? selecionado || undefined : undefined);
+      await carregar(canPickEstab ? selecionado || undefined : undefined);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao editar");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const alternarAtivo = async (item: Destinatario) => {
+    setSalvando(true);
+    setErro(null);
+    setMensagem(null);
+    try {
+      await api<Destinatario>(`/destinatarios/${item.id}`, {
+        method: "PATCH",
+        body: { ativo: !item.ativo },
+      });
+      setMensagem(item.ativo ? "E-mail inativado (não recebe relatório)." : "E-mail reativado.");
+      await carregar(canPickEstab ? selecionado || undefined : undefined);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao alterar status");
     } finally {
       setSalvando(false);
     }
@@ -112,7 +133,7 @@ export default function Destinatarios() {
     try {
       await api(`/destinatarios/${id}`, { method: "DELETE" });
       setMensagem("E-mail excluído.");
-      await carregar(isAdmin ? selecionado || undefined : undefined);
+      await carregar(canPickEstab ? selecionado || undefined : undefined);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao excluir");
     } finally {
@@ -120,21 +141,23 @@ export default function Destinatarios() {
     }
   };
 
-  const tituloEstab = isAdmin ? selecionado : (user?.estabelecimento ?? "—");
+  const tituloEstab = canPickEstab ? selecionado : (user?.estabelecimento ?? "—");
+  const colCount = canPickEstab ? 5 : 4;
 
   return (
     <div className="page">
       <h1>Destinatários de e-mail</h1>
       <p className="page-lead">
-        Gerencie quem recebe o relatório automático de notas.{" "}
-        {isAdmin
-          ? "Admin pode gerenciar todas as unidades."
+        Gerencie quem recebe o relatório automático de notas. Inative um e-mail para parar o
+        envio sem apagar o cadastro.{" "}
+        {canPickEstab
+          ? "Admin/dev podem gerenciar todas as unidades."
           : "Você só vê e altera os e-mails do seu estabelecimento."}
       </p>
 
       <div className="card">
         <div className="row">
-          {isAdmin ? (
+          {canPickEstab ? (
             <label>
               Estabelecimento
               <select value={selecionado} onChange={(e) => setSelecionado(e.target.value)}>
@@ -165,7 +188,7 @@ export default function Destinatarios() {
           <button
             type="button"
             className="btn-primary"
-            disabled={salvando || !novoEmail.trim() || (isAdmin && !selecionado)}
+            disabled={salvando || !novoEmail.trim() || (canPickEstab && !selecionado)}
             onClick={() => void adicionar()}
           >
             Adicionar
@@ -173,8 +196,8 @@ export default function Destinatarios() {
         </div>
 
         <p className="help-text">
-          Esses e-mails recebem o disparo do relatório (quando o envio estiver ligado em
-          Configurações, exclusivo do admin). Sem destinatários, o e-mail não é enviado.
+          Apenas e-mails <strong>ativos</strong> recebem o relatório (quando o envio estiver ligado
+          em Configurações). Sem destinatários ativos, o e-mail não é enviado.
         </p>
 
         {mensagem ? <div className="alert-success">{mensagem}</div> : null}
@@ -185,7 +208,9 @@ export default function Destinatarios() {
         <div className="card-header">
           <div>
             <h2>Lista — {tituloEstab || "—"}</h2>
-            <p className="card-subtitle">{itens.length} destinatário(s)</p>
+            <p className="card-subtitle">
+              {itens.length} destinatário(s) · {itens.filter((i) => i.ativo).length} ativo(s)
+            </p>
           </div>
         </div>
 
@@ -194,7 +219,8 @@ export default function Destinatarios() {
             <thead>
               <tr>
                 <th>E-mail</th>
-                {isAdmin ? <th>Estabelecimento</th> : null}
+                <th>Status</th>
+                {canPickEstab ? <th>Estabelecimento</th> : null}
                 <th>Atualizado</th>
                 <th className="actions-col">Ações</th>
               </tr>
@@ -202,13 +228,13 @@ export default function Destinatarios() {
             <tbody>
               {carregando ? (
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="empty">
+                  <td colSpan={colCount} className="empty">
                     Carregando...
                   </td>
                 </tr>
               ) : itens.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="empty">
+                  <td colSpan={colCount} className="empty">
                     Nenhum e-mail cadastrado para esta unidade.
                   </td>
                 </tr>
@@ -216,7 +242,7 @@ export default function Destinatarios() {
                 itens.map((item) => {
                   const editando = editandoId === item.id;
                   return (
-                    <tr key={item.id}>
+                    <tr key={item.id} className={item.ativo ? undefined : "row-inactive"}>
                       <td>
                         {editando ? (
                           <input
@@ -228,7 +254,12 @@ export default function Destinatarios() {
                           item.email
                         )}
                       </td>
-                      {isAdmin ? <td>{item.estabelecimento}</td> : null}
+                      <td>
+                        <span className={item.ativo ? "badge-status badge-status--ok" : "badge-status"}>
+                          {item.ativo ? "Ativo" : "Inativo"}
+                        </span>
+                      </td>
+                      {canPickEstab ? <td>{item.estabelecimento}</td> : null}
                       <td>{formatDataHora(item.updated_at ?? item.created_at)}</td>
                       <td className="actions-cell">
                         {editando ? (
@@ -265,6 +296,14 @@ export default function Destinatarios() {
                               }}
                             >
                               Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-table"
+                              disabled={salvando}
+                              onClick={() => void alternarAtivo(item)}
+                            >
+                              {item.ativo ? "Inativar" : "Reativar"}
                             </button>
                             <button
                               type="button"

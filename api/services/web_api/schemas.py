@@ -3,12 +3,22 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Role = Literal["adm", "usuario"]
+Role = Literal["adm", "adm_local", "usuario", "dev"]
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    code: str = Field(min_length=4, max_length=12)
+    new_password: str = Field(min_length=4, max_length=128)
 
 
 class Token(BaseModel):
@@ -19,6 +29,7 @@ class Token(BaseModel):
 class UsuarioCreate(BaseModel):
     username: str = Field(min_length=3, max_length=80)
     password: str = Field(min_length=4, max_length=128)
+    email: Optional[str] = Field(default=None, max_length=255)
     role: Role = "usuario"
     estabelecimento: Optional[str] = None
 
@@ -26,6 +37,7 @@ class UsuarioCreate(BaseModel):
 class UsuarioOut(BaseModel):
     id: int
     username: str
+    email: Optional[str] = None
     role: Role
     estabelecimento: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -227,6 +239,7 @@ class DestinatarioOut(BaseModel):
     id: int
     estabelecimento: str
     email: str
+    ativo: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -234,10 +247,12 @@ class DestinatarioOut(BaseModel):
 class DestinatarioCreate(BaseModel):
     estabelecimento: Optional[str] = None
     email: str = Field(min_length=3, max_length=255)
+    ativo: bool = True
 
 
 class DestinatarioUpdate(BaseModel):
-    email: str = Field(min_length=3, max_length=255)
+    email: Optional[str] = Field(default=None, min_length=3, max_length=255)
+    ativo: Optional[bool] = None
 
 
 class DashboardKpisOut(BaseModel):

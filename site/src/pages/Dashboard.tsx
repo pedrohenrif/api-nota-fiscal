@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, getToken } from "../api";
 import { useAuth } from "../auth";
 import { buildQuery, formatDataHora } from "../lib/format";
+import { canSeeFilas, isGlobalAdmin } from "../lib/roles";
 import type { NotaStatus } from "../types";
 import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
 
@@ -37,6 +38,31 @@ interface DashboardResumo {
   recentes_com_erro: NotaStatus[];
 }
 
+interface FilasStatus {
+  healthy: boolean;
+  alerts: string[];
+  nf_raw: { name: string; messages: number; consumers: number };
+  nf_dead: { name: string; messages: number; consumers: number };
+  processor: {
+    ok?: boolean;
+    error?: string;
+    consumer_running?: boolean;
+    circuit_open?: boolean;
+    processor_stalled?: boolean;
+    pr_timeout_seconds?: number;
+    circuit_breaker?: {
+      state?: string;
+      consecutive_timeouts?: number;
+      open_remaining_seconds?: number;
+    };
+    stats?: {
+      idle_seconds_since_activity?: number | null;
+      last_error?: string | null;
+      last_result?: string | null;
+    };
+  };
+}
+
 function BarRow({ label, value, max, tone }: { label: string; value: number; max: number; tone: string }) {
   const pct = max > 0 ? Math.max((value / max) * 100, value > 0 ? 4 : 0) : 0;
   return (
@@ -54,16 +80,25 @@ function BarRow({ label, value, max, tone }: { label: string; value: number; max
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "adm";
+  const isAdmin = isGlobalAdmin(user?.role) || user?.role === "dev";
+  const showFilas = canSeeFilas(user?.role);
 
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
   const [estabelecimento, setEstabelecimento] = useState("");
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
+  const [dataInicio, setDataInicio] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [dataFim, setDataFim] = useState(() => {
+    const now = new Date();
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+  });
   const [usarDataNf, setUsarDataNf] = useState(false);
   const [statusExport, setStatusExport] = useState("");
   const [erroTipoExport, setErroTipoExport] = useState("");
   const [resumo, setResumo] = useState<DashboardResumo | null>(null);
+  const [filas, setFilas] = useState<FilasStatus | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -91,14 +126,18 @@ export default function Dashboard() {
     setCarregando(true);
     setErro(null);
     try {
-      const data = await api<DashboardResumo>(`/dashboard/resumo${buildQuery(queryParams)}`);
+      const [data, filasData] = await Promise.all([
+        api<DashboardResumo>(`/dashboard/resumo${buildQuery(queryParams)}`),
+        showFilas ? api<FilasStatus>("/ops/filas").catch(() => null) : Promise.resolve(null),
+      ]);
       setResumo(data);
+      setFilas(filasData);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao carregar dashboard");
     } finally {
       setCarregando(false);
     }
-  }, [queryParams]);
+  }, [queryParams, showFilas]);
 
   useEffect(() => {
     void carregar();
@@ -156,8 +195,8 @@ export default function Dashboard() {
     <div className="page">
       <h1>Dashboard</h1>
       <p className="page-lead">
-        Visão da integração de notas (sucessos, erros e volume). Use o período e exporte o relatório
-        completo para controle.
+        Visão da integração de notas (sucessos, erros e volume). Período inicial: mês atual
+        (editável). Use Exportar CSV para o relatório completo.
       </p>
 
       <div className="card">
@@ -210,6 +249,66 @@ export default function Dashboard() {
         </div>
         {erro ? <div className="alert-error">{erro}</div> : null}
       </div>
+
+      {filas ? (
+        <div
+          className="card"
+          style={{
+            borderColor: filas.healthy ? undefined : "var(--danger, #b42318)",
+            marginBottom: "1rem",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Filas e processor</h2>
+          <div className="dash-kpi-grid">
+            <div className={`dash-kpi ${filas.nf_raw.messages >= 20 ? "dash-kpi--warn" : ""}`}>
+              <span>Na fila (nf.raw)</span>
+              <strong>{filas.nf_raw.messages}</strong>
+            </div>
+            <div className={`dash-kpi ${filas.nf_dead.messages > 0 ? "dash-kpi--danger" : ""}`}>
+              <span>Dead letter (nf.dead)</span>
+              <strong>{filas.nf_dead.messages}</strong>
+            </div>
+            <div
+              className={`dash-kpi ${
+                filas.processor.consumer_running ? "dash-kpi--ok" : "dash-kpi--danger"
+              }`}
+            >
+              <span>Consumer</span>
+              <strong>{filas.processor.consumer_running ? "Rodando" : "Parado"}</strong>
+            </div>
+            <div
+              className={`dash-kpi ${
+                filas.processor.circuit_open || filas.processor.processor_stalled
+                  ? "dash-kpi--danger"
+                  : "dash-kpi--ok"
+              }`}
+            >
+              <span>PR / processor</span>
+              <strong>
+                {filas.processor.circuit_open
+                  ? "Circuit aberto"
+                  : filas.processor.processor_stalled
+                    ? "Sem atividade"
+                    : "OK"}
+              </strong>
+              {filas.processor.circuit_breaker?.open_remaining_seconds ? (
+                <em>{filas.processor.circuit_breaker.open_remaining_seconds}s restantes</em>
+              ) : null}
+            </div>
+          </div>
+          {filas.alerts.length > 0 ? (
+            <div className="alert-error" style={{ marginTop: "0.75rem" }}>
+              {filas.alerts.map((a) => (
+                <div key={a}>{a}</div>
+              ))}
+            </div>
+          ) : (
+            <p className="page-lead" style={{ marginBottom: 0 }}>
+              Filas saudáveis. Timeout PR atual: {filas.processor.pr_timeout_seconds ?? "—"}s.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       {kpis ? (
         <div className="dash-kpi-grid">

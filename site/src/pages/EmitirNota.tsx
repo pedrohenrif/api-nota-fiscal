@@ -8,12 +8,12 @@ import NotasTable from "../components/notas/NotasTable";
 import Pagination from "../components/Pagination";
 import { useNotas } from "../hooks/useNotas";
 import { reemitirNota } from "../lib/notas";
+import { isDev, isGlobalAdmin } from "../lib/roles";
 import type { NotaStatus } from "../types";
 
 export default function EmitirNota() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "adm";
-
+  const isAdmin = isGlobalAdmin(user?.role) || isDev(user?.role);
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
   const [selecionado, setSelecionado] = useState<string>("");
   const [mensagem, setMensagem] = useState<string | null>(null);

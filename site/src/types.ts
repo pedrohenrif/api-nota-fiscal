@@ -1,8 +1,9 @@
-export type Role = "adm" | "usuario";
+export type Role = "adm" | "adm_local" | "usuario" | "dev";
 
 export interface Usuario {
   id: number;
   username: string;
+  email?: string | null;
   role: Role;
   estabelecimento: string | null;
   created_at?: string | null;
@@ -185,6 +186,7 @@ export const ERRO_TIPO_OPTIONS = [
   { value: "sem_depara", label: "Sem de-para" },
   { value: "sem_lote", label: "Sem lote" },
   { value: "retorno_pr", label: "Retorno PR" },
+  { value: "timeout_pr", label: "Timeout PR" },
   { value: "outro", label: "Outro" },
 ] as const;
 
@@ -192,6 +194,7 @@ export const ERRO_TIPO_LABELS: Record<string, string> = {
   sem_depara: "Sem de-para",
   sem_lote: "Sem lote",
   retorno_pr: "Retorno PR",
+  timeout_pr: "Timeout PR",
   outro: "Outro",
 };
 

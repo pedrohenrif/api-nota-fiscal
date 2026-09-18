@@ -1,15 +1,20 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
 import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import Pagination from "../components/Pagination";
 import { formatDataHora, buildQuery } from "../lib/format";
 import { formatRetornoPr } from "../lib/notas";
+import { isDev, isGlobalAdmin } from "../lib/roles";
 import type { NotaStatus, NotaStatusPage } from "../types";
 import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
 
 const PAGE_SIZE = 50;
 
 export default function Logs() {
+  const { user } = useAuth();
+  const canPickEstab = isGlobalAdmin(user?.role) || isDev(user?.role);
+
   const [logs, setLogs] = useState<NotaStatus[]>([]);
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
   const [estabelecimento, setEstabelecimento] = useState("");
@@ -32,7 +37,7 @@ export default function Logs() {
       setErro(null);
       try {
         const query = buildQuery({
-          estabelecimento: estabelecimento || undefined,
+          estabelecimento: canPickEstab ? estabelecimento || undefined : undefined,
           status: status || undefined,
           erro_tipo: erroTipo || undefined,
           somente_erro: somenteErro ? "true" : "false",
@@ -51,14 +56,15 @@ export default function Logs() {
         setCarregando(false);
       }
     },
-    [estabelecimento, erroTipo, page, somenteErro, status]
+    [canPickEstab, estabelecimento, erroTipo, page, somenteErro, status]
   );
 
   useEffect(() => {
+    if (!canPickEstab) return;
     api<string[]>("/estabelecimentos")
       .then(setEstabelecimentos)
       .catch(() => undefined);
-  }, []);
+  }, [canPickEstab]);
 
   const toggleExpandir = (id: number) => {
     setExpandidoId((atual) => (atual === id ? null : id));
@@ -67,20 +73,31 @@ export default function Logs() {
   return (
     <div className="page">
       <h1>Logs de processamento</h1>
+      <p className="page-lead">
+        {canPickEstab
+          ? "Histórico de processamento de todas as unidades."
+          : `Histórico do estabelecimento ${user?.estabelecimento ?? "—"}.`}
+      </p>
 
       <div className="card">
         <div className="row logs-filters">
-          <label>
-            Estabelecimento
-            <select value={estabelecimento} onChange={(e) => setEstabelecimento(e.target.value)}>
-              <option value="">Todos</option>
-              {estabelecimentos.map((est) => (
-                <option key={est} value={est}>
-                  {est}
-                </option>
-              ))}
-            </select>
-          </label>
+          {canPickEstab ? (
+            <label>
+              Estabelecimento
+              <select value={estabelecimento} onChange={(e) => setEstabelecimento(e.target.value)}>
+                <option value="">Todos</option>
+                {estabelecimentos.map((est) => (
+                  <option key={est} value={est}>
+                    {est}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="estab-fixed">
+              Estabelecimento: <strong>{user?.estabelecimento ?? "—"}</strong>
+            </div>
+          )}
 
           <label>
             Status

@@ -37,7 +37,28 @@ def shutdown_consumer() -> None:
 @app.get("/health")
 def health() -> dict:
     running = worker_thread.is_alive() if worker_thread else False
-    return {"status": "ok", "service": "processor", "consumer_running": running}
+    from services.processor.config import (
+        MAX_PROCESSING_RETRIES,
+        PR_HTTP_TIMEOUT_SECONDS,
+        PUBLISH_DEAD_LETTER_QUEUE,
+    )
+    from services.processor.pr_circuit import pr_circuit
+    from services.processor.runtime_stats import runtime_stats
+
+    stats = runtime_stats.snapshot()
+    circuit = pr_circuit.snapshot()
+    return {
+        "status": "ok",
+        "service": "processor",
+        "consumer_running": running,
+        "pr_timeout_seconds": PR_HTTP_TIMEOUT_SECONDS,
+        "max_retries": MAX_PROCESSING_RETRIES,
+        "publish_dead_letter_queue": PUBLISH_DEAD_LETTER_QUEUE,
+        "circuit_breaker": circuit,
+        "stats": stats,
+        "processor_stalled": bool(stats.get("processor_stalled")),
+        "circuit_open": circuit.get("state") == "open",
+    }
 
 
 @app.post("/consume")

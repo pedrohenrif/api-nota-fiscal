@@ -668,6 +668,21 @@ select:focus {
   flex-direction: column;
   padding: 24px 18px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar-top {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar nav {
@@ -675,6 +690,8 @@ select:focus {
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .sidebar nav a {
@@ -703,6 +720,14 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.login-links {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
 }
 
 .user-info {
@@ -1268,6 +1293,25 @@ select:focus {
 
 .help-card li + li {
   margin-top: 8px;
+}
+
+.badge-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+}
+
+.badge-status--ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.row-inactive td {
+  opacity: 0.65;
 }
 
 .resumo-ip-grid {

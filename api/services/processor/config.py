@@ -5,7 +5,18 @@ RABBITMQ_QUEUE_RAW_NF = os.getenv("RABBITMQ_QUEUE_RAW_NF", "nf.raw")
 RABBITMQ_QUEUE_DEAD = os.getenv("RABBITMQ_QUEUE_DEAD", "nf.dead")
 CONSUMER_IDLE_SLEEP_SECONDS = float(os.getenv("CONSUMER_IDLE_SLEEP_SECONDS", "2"))
 RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", "10"))
+RETRY_BACKOFF_MAX_SECONDS = int(os.getenv("RETRY_BACKOFF_MAX_SECONDS", "300"))
 MAX_PROCESSING_RETRIES = int(os.getenv("MAX_PROCESSING_RETRIES", "3"))
+# Se false, dead_letter fica so no Postgres (nao enche nf.dead).
+PUBLISH_DEAD_LETTER_QUEUE = os.getenv("PUBLISH_DEAD_LETTER_QUEUE", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+PR_HTTP_TIMEOUT_SECONDS = float(os.getenv("PR_HTTP_TIMEOUT_SECONDS", "90"))
+PR_CIRCUIT_FAILURE_THRESHOLD = int(os.getenv("PR_CIRCUIT_FAILURE_THRESHOLD", "5"))
+PR_CIRCUIT_OPEN_SECONDS = int(os.getenv("PR_CIRCUIT_OPEN_SECONDS", "120"))
+PR_CIRCUIT_RETRY_DELAY_SECONDS = int(os.getenv("PR_CIRCUIT_RETRY_DELAY_SECONDS", "60"))
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
 
 # homolog | production

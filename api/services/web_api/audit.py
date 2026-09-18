@@ -32,6 +32,7 @@ _ACTION_MAP: list[tuple[str, str, str]] = [
     ("DELETE", "/destinatarios/", "excluir_destinatario"),
     ("GET", "/dashboard/resumo", "dashboard_resumo"),
     ("GET", "/dashboard/export", "dashboard_export"),
+    ("GET", "/ops/filas", "ops_filas"),
     ("GET", "/usuarios", "listar_usuarios"),
     ("POST", "/usuarios", "criar_usuario"),
     ("GET", "/estabelecimentos", "listar_estabelecimentos"),

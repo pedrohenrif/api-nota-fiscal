@@ -34,15 +34,32 @@ from services.web_api.audit import (
 from services.web_api.config import (
     BOOTSTRAP_ADMIN_PASSWORD,
     BOOTSTRAP_ADMIN_USERNAME,
+    BOOTSTRAP_DEV_EMAIL,
+    BOOTSTRAP_DEV_PASSWORD,
+    BOOTSTRAP_DEV_USERNAME,
     CORS_ORIGINS,
     ESTABELECIMENTOS,
     EXTRACTOR_URL,
     REPORT_URL,
 )
 from services.web_api.db import Base, SessionLocal, engine, get_db
-from services.web_api.deps import get_current_user, require_admin
+from services.web_api.deps import (
+    get_current_user,
+    require_admin,
+    require_config_admin,
+    require_dev,
+    require_user_manager,
+)
 from services.web_api.http_errors import raise_for_extractor_response
+from services.web_api.migrations import run_web_api_migrations
 from services.web_api.models import Usuario
+from services.web_api.password_reset import request_password_reset, reset_password_with_code
+from services.web_api.roles import (
+    can_see_filas,
+    creatable_roles_by,
+    is_global_admin,
+    requires_estabelecimento,
+)
 from services.web_api.schemas import (
     AccessAuditPageOut,
     AccessIpSummaryOut,
@@ -56,6 +73,7 @@ from services.web_api.schemas import (
     AtualizarNotaTasyRequest,
     EstabelecimentoConfigOut,
     EstabelecimentoConfigUpdate,
+    ForgotPasswordRequest,
     LoginRequest,
     NotaConsultaOut,
     NotaDetalheOut,
@@ -64,10 +82,12 @@ from services.web_api.schemas import (
     ReemitirNotaRequest,
     ReportSettingsOut,
     ReportSettingsUpdate,
+    ResetPasswordRequest,
     Token,
     UsuarioCreate,
     UsuarioOut,
 )
+from services.common.report_recipients import validate_email as validate_user_email
 from services.web_api.security import create_access_token, verify_password
 from services.processor.depara import enrich_preview_with_depara
 
@@ -117,6 +137,7 @@ async def access_audit_middleware(request: Request, call_next):
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    run_web_api_migrations()
     ensure_estab_config_table()
     ensure_report_recipients_table()
     _seed_admin()
@@ -133,6 +154,19 @@ def _seed_admin() -> None:
                 role="adm",
                 estabelecimento=None,
             )
+        if (
+            BOOTSTRAP_DEV_USERNAME
+            and BOOTSTRAP_DEV_PASSWORD
+            and repository.get_user_by_username(db, BOOTSTRAP_DEV_USERNAME) is None
+        ):
+            repository.create_user(
+                db,
+                username=BOOTSTRAP_DEV_USERNAME,
+                password=BOOTSTRAP_DEV_PASSWORD,
+                role="dev",
+                estabelecimento=None,
+                email=BOOTSTRAP_DEV_EMAIL,
+            )
     finally:
         db.close()
 
@@ -140,6 +174,43 @@ def _seed_admin() -> None:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "web_api"}
+
+
+@app.get("/ops/filas")
+def ops_filas(current_user: Usuario = Depends(get_current_user)) -> dict:
+    """Profundidade RabbitMQ + saude do processor (circuit breaker / stall)."""
+    from services.web_api.ops_status import get_filas_status
+
+    if not can_see_filas(current_user.role):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao perfil dev")
+    try:
+        return get_filas_status()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Nao foi possivel consultar filas/processor: {exc}",
+        ) from exc
+
+
+@app.post("/auth/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    try:
+        return request_password_reset(db, payload.email)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/auth/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    try:
+        return reset_password_with_code(
+            db,
+            email=payload.email,
+            code=payload.code,
+            new_password=payload.new_password,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/auth/login", response_model=Token)
@@ -199,7 +270,7 @@ def me(current_user: Usuario = Depends(get_current_user)) -> Usuario:
 
 @app.get("/estabelecimentos", response_model=list[str])
 def estabelecimentos(current_user: Usuario = Depends(get_current_user)) -> list[str]:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         return ESTABELECIMENTOS
     return [current_user.estabelecimento] if current_user.estabelecimento else []
 
@@ -207,7 +278,7 @@ def estabelecimentos(current_user: Usuario = Depends(get_current_user)) -> list[
 def _resolve_estab_filter(
     current_user: Usuario, estabelecimento: str | None
 ) -> str | None:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         return estabelecimento
     return current_user.estabelecimento
 
@@ -303,46 +374,81 @@ def dashboard_export(
 
 @app.get("/usuarios", response_model=list[UsuarioOut])
 def list_usuarios(
-    _: Usuario = Depends(require_admin), db: Session = Depends(get_db)
+    current_user: Usuario = Depends(require_user_manager),
+    db: Session = Depends(get_db),
 ) -> list[Usuario]:
-    return repository.list_users(db)
+    if is_global_admin(current_user.role):
+        return repository.list_users(db)
+    return repository.list_users(db, estabelecimento=current_user.estabelecimento)
 
 
 @app.post("/usuarios", response_model=UsuarioOut, status_code=status.HTTP_201_CREATED)
 def create_usuario(
     payload: UsuarioCreate,
-    _: Usuario = Depends(require_admin),
+    current_user: Usuario = Depends(require_user_manager),
     db: Session = Depends(get_db),
 ) -> Usuario:
+    allowed_roles = creatable_roles_by(current_user.role)
+    if payload.role not in allowed_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Seu perfil nao pode criar usuarios com papel '{payload.role}'",
+        )
+
     if repository.get_user_by_username(db, payload.username):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Usuario ja existe"
         )
 
-    if payload.role == "usuario":
-        if not payload.estabelecimento:
+    email = None
+    if payload.email:
+        try:
+            email = validate_user_email(payload.email)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if repository.get_user_by_email(db, email):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="E-mail ja cadastrado"
+            )
+
+    if requires_estabelecimento(payload.role):
+        if is_global_admin(current_user.role):
+            estabelecimento = payload.estabelecimento
+        else:
+            estabelecimento = current_user.estabelecimento
+        if not estabelecimento:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Estabelecimento e obrigatorio para usuario",
+                detail="Estabelecimento e obrigatorio para este papel",
             )
-        if payload.estabelecimento not in ESTABELECIMENTOS:
+        if estabelecimento not in ESTABELECIMENTOS:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Estabelecimento invalido",
             )
+        if (
+            not is_global_admin(current_user.role)
+            and estabelecimento != current_user.estabelecimento
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Adm local so cria usuarios do proprio estabelecimento",
+            )
+    else:
+        estabelecimento = None
 
-    estabelecimento = payload.estabelecimento if payload.role == "usuario" else None
     return repository.create_user(
         db,
         username=payload.username,
         password=payload.password,
         role=payload.role,
         estabelecimento=estabelecimento,
+        email=email,
     )
 
 
 def _resolve_estabelecimento(current_user: Usuario, requested: str | None) -> str:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         if not requested:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -441,7 +547,7 @@ REEMITIR_STATUS = frozenset({"retry_pending", "dead_letter"})
 
 
 def _assert_nota_access(current_user: Usuario, nota: dict) -> None:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         return
     if nota.get("estabelecimento") != current_user.estabelecimento:
         raise HTTPException(
@@ -574,7 +680,7 @@ def listar_notas(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         target = estabelecimento
     else:
         target = current_user.estabelecimento
@@ -743,7 +849,7 @@ def detalhe_nota(
 
 @app.get("/admin/logs", response_model=NotaStatusPageOut)
 def listar_logs(
-    _: Usuario = Depends(require_admin),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
     estabelecimento: str | None = None,
     status: str | None = None,
@@ -752,9 +858,10 @@ def listar_logs(
     page: int = 1,
     page_size: int = 50,
 ) -> dict:
+    target = _resolve_estab_filter(current_user, estabelecimento)
     return panel_data.list_logs(
         db,
-        estabelecimento=estabelecimento,
+        estabelecimento=target,
         status=status,
         erro_tipo=erro_tipo,
         somente_erro=somente_erro,
@@ -765,7 +872,7 @@ def listar_logs(
 
 @app.get("/admin/acesso/resumo", response_model=AccessIpSummaryOut)
 def resumir_acesso_ips(
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_dev),
     db: Session = Depends(get_db),
     username: str | None = None,
     estabelecimento: str | None = None,
@@ -785,7 +892,7 @@ def resumir_acesso_ips(
 
 @app.get("/admin/acesso", response_model=AccessAuditPageOut)
 def listar_acesso(
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_dev),
     db: Session = Depends(get_db),
     username: str | None = None,
     ip: str | None = None,
@@ -816,7 +923,7 @@ def listar_acesso(
 def _resolve_destinatario_estabelecimento(
     current_user: Usuario, estabelecimento: str | None
 ) -> str | None:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         return estabelecimento
     return current_user.estabelecimento
 
@@ -827,7 +934,11 @@ def listar_destinatarios(
     current_user: Usuario = Depends(get_current_user),
 ) -> list[dict]:
     target = _resolve_destinatario_estabelecimento(current_user, estabelecimento)
-    if current_user.role != "adm" and not target:
+    if (
+        not is_global_admin(current_user.role)
+        and current_user.role != "dev"
+        and not target
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario sem estabelecimento vinculado",
@@ -840,7 +951,7 @@ def criar_destinatario(
     payload: DestinatarioCreate,
     current_user: Usuario = Depends(get_current_user),
 ) -> dict:
-    if current_user.role == "adm":
+    if is_global_admin(current_user.role) or current_user.role == "dev":
         target = payload.estabelecimento
         if not target:
             raise HTTPException(status_code=422, detail="Informe o estabelecimento")
@@ -857,7 +968,11 @@ def criar_destinatario(
                 detail="Usuario so pode cadastrar e-mails do proprio estabelecimento",
             )
     try:
-        return create_recipient(estabelecimento=target, email=payload.email)
+        return create_recipient(
+            estabelecimento=target,
+            email=payload.email,
+            ativo=payload.ativo,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -868,11 +983,16 @@ def editar_destinatario(
     payload: DestinatarioUpdate,
     current_user: Usuario = Depends(get_current_user),
 ) -> dict:
-    allowed = None if current_user.role == "adm" else current_user.estabelecimento
+    allowed = (
+        None
+        if is_global_admin(current_user.role) or current_user.role == "dev"
+        else current_user.estabelecimento
+    )
     try:
         return update_recipient(
             recipient_id=recipient_id,
             email=payload.email,
+            ativo=payload.ativo,
             allowed_estabelecimento=allowed,
         )
     except LookupError as exc:
@@ -888,7 +1008,11 @@ def excluir_destinatario(
     recipient_id: int,
     current_user: Usuario = Depends(get_current_user),
 ) -> None:
-    allowed = None if current_user.role == "adm" else current_user.estabelecimento
+    allowed = (
+        None
+        if is_global_admin(current_user.role) or current_user.role == "dev"
+        else current_user.estabelecimento
+    )
     try:
         delete_recipient(
             recipient_id=recipient_id,
@@ -901,7 +1025,9 @@ def excluir_destinatario(
 
 
 @app.get("/admin/estabelecimentos/config", response_model=list[EstabelecimentoConfigOut])
-def listar_config_estabelecimentos(_: Usuario = Depends(require_admin)) -> list[dict]:
+def listar_config_estabelecimentos(
+    _: Usuario = Depends(require_config_admin),
+) -> list[dict]:
     return list_estab_configs()
 
 
@@ -912,7 +1038,7 @@ def listar_config_estabelecimentos(_: Usuario = Depends(require_admin)) -> list[
 def atualizar_config_estabelecimento(
     estabelecimento: str,
     payload: EstabelecimentoConfigUpdate,
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_config_admin),
 ) -> dict:
     if estabelecimento not in ESTABELECIMENTOS:
         raise HTTPException(status_code=422, detail="Estabelecimento invalido")
@@ -934,7 +1060,7 @@ def atualizar_config_estabelecimento(
 @app.post("/admin/relatorios/enviar")
 def enviar_relatorio_email(
     payload: EnviarRelatorioRequest,
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_config_admin),
 ) -> dict:
     if payload.estabelecimento not in ESTABELECIMENTOS:
         raise HTTPException(status_code=422, detail="Estabelecimento invalido")
@@ -963,7 +1089,7 @@ def enviar_relatorio_email(
 
 
 @app.get("/admin/relatorios/config", response_model=ReportSettingsOut)
-def obter_config_relatorio(_: Usuario = Depends(require_admin)) -> dict:
+def obter_config_relatorio(_: Usuario = Depends(require_config_admin)) -> dict:
     try:
         with httpx.Client(timeout=15.0) as client:
             response = client.get(f"{REPORT_URL}/relatorios/config")
@@ -982,7 +1108,7 @@ def obter_config_relatorio(_: Usuario = Depends(require_admin)) -> dict:
 @app.patch("/admin/relatorios/config", response_model=ReportSettingsOut)
 def atualizar_config_relatorio(
     payload: ReportSettingsUpdate,
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_config_admin),
 ) -> dict:
     try:
         with httpx.Client(timeout=15.0) as client:
@@ -1011,7 +1137,7 @@ def atualizar_config_relatorio(
 @app.get("/admin/estabelecimentos/{estabelecimento}/config", response_model=EstabelecimentoConfigOut)
 def obter_config_estabelecimento(
     estabelecimento: str,
-    _: Usuario = Depends(require_admin),
+    _: Usuario = Depends(require_config_admin),
 ) -> dict:
     cfg = get_estab_config(estabelecimento)
     if cfg is None:

@@ -93,7 +93,9 @@ services:
     environment:
       POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
       EXTRACTOR_URL: http://extractor-service:8001
+      PROCESSOR_URL: http://processor-service:8002
       REPORT_URL: http://report-service:8004
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     ports:
       - "8003:8003"
     command: uvicorn services.web_api.main:app --host 0.0.0.0 --port 8003

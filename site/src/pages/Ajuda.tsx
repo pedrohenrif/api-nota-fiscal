@@ -1,15 +1,30 @@
 import { useAuth } from "../auth";
+import {
+  canManageConfig,
+  canManageUsers,
+  canSeeAcesso,
+  canSeeFilas,
+  isDev,
+  isGlobalAdmin,
+  roleLabel,
+} from "../lib/roles";
 
 export default function Ajuda() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "adm";
+  const role = user?.role;
+  const isAdmin = isGlobalAdmin(role);
+  const localManager = canManageUsers(role);
+  const seesFilas = canSeeFilas(role);
+  const seesAcesso = canSeeAcesso(role);
+  const config = canManageConfig(role);
 
   return (
     <div className="page">
       <h1>Ajuda</h1>
       <p className="page-lead">
-        Guia rápido do painel de integração de notas fiscais (Tasy → PR).
-        {isAdmin ? " Conteúdo completo para administrador." : " Foco nas funções do seu estabelecimento."}
+        Guia do painel de integração de notas (Tasy → PR). Seu perfil atual:{" "}
+        <strong>{roleLabel(role)}</strong>
+        {user?.estabelecimento ? ` · ${user.estabelecimento}` : ""}.
       </p>
 
       <div className="help-sections">
@@ -17,20 +32,25 @@ export default function Ajuda() {
           <h2>Dashboard</h2>
           <ul>
             <li>
-              Mostra KPIs da integração: total, enviadas com sucesso, retry, dead letter e taxas.
+              Abre com o <strong>mês corrente</strong> (dia 1 até o último dia). Altere as datas
+              se precisar de outro período.
             </li>
             <li>
-              Dimensione erros por tipo (sem de-para, sem lote, retorno PR) e acompanhe a evolução
-              diária.
+              KPIs: total, enviadas, retry, dead letter, tipos de erro e evolução diária.
             </li>
             <li>
-              Use <strong>Exportar CSV</strong> para baixar o relatório completo das notas do
-              período (abre no Excel).
+              Use <strong>Exportar CSV</strong> para baixar o relatório do período.
             </li>
-            {!isAdmin ? (
-              <li>Usuário comum vê apenas os dados do próprio estabelecimento.</li>
+            {seesFilas ? (
+              <li>
+                Bloco <strong>Filas e processor</strong> mostra fila RabbitMQ, dead letter e
+                saúde do consumer/circuit breaker (somente dev).
+              </li>
+            ) : null}
+            {!isAdmin && !isDev(role) ? (
+              <li>Você vê apenas os dados do próprio estabelecimento.</li>
             ) : (
-              <li>Admin pode filtrar por unidade ou ver todas.</li>
+              <li>Admin/dev podem filtrar por unidade ou ver todas.</li>
             )}
           </ul>
         </section>
@@ -39,24 +59,19 @@ export default function Ajuda() {
           <h2>Emitir Nota</h2>
           <ul>
             <li>
-              A lista <strong>não carrega sozinha</strong> ao abrir. Use os filtros e clique em{" "}
+              A lista <strong>não carrega sozinha</strong>. Use os filtros e clique em{" "}
               <strong>Aplicar filtros</strong>.
             </li>
             <li>
-              Você pode ordenar por <strong>NR Sequência</strong> ou <strong>Data NF</strong>{" "}
-              (sempre do mais recente/maior para o menor).
+              Ordene por <strong>NR Sequência</strong> ou <strong>Data NF</strong>.
             </li>
             <li>
-              <strong>Emitir pendentes</strong> busca no Tasy as notas elegíveis e coloca na fila
-              para o PR.
+              <strong>Emitir pendentes</strong> busca no Tasy e coloca na fila do PR.{" "}
+              <strong>Emitir nota específica</strong> envia uma sequência.
             </li>
             <li>
-              <strong>Emitir nota específica</strong> envia uma sequência escolhida.
-            </li>
-            <li>
-              Clique em uma linha para ver itens, lotes e status de de-para. Use{" "}
-              <strong>Reemitir</strong> quando a nota estiver com erro e a causa já tiver sido
-              corrigida.
+              Clique na linha para ver itens/lotes/de-para. Use <strong>Reemitir</strong> após
+              corrigir a causa do erro.
             </li>
           </ul>
         </section>
@@ -65,14 +80,18 @@ export default function Ajuda() {
           <h2>Tipos de erro comuns</h2>
           <ul>
             <li>
-              <strong>Sem de-para</strong> — material do Tasy sem vínculo no PR. Cadastre o de-para
-              e reemitir.
+              <strong>Sem de-para</strong> — material do Tasy sem vínculo no PR. Cadastre e
+              reemitir.
             </li>
             <li>
-              <strong>Sem lote</strong> — item exige lote e não veio informado no Tasy.
+              <strong>Sem lote</strong> — item exige lote e não veio no Tasy.
             </li>
             <li>
-              <strong>Retorno PR</strong> — a API do PR recusou (ex.: NF já integrada, validação).
+              <strong>Retorno PR</strong> — a API do PR recusou (ex.: NF já integrada).
+            </li>
+            <li>
+              <strong>Timeout / circuit aberto</strong> — PR lento ou indisponível; o processor
+              pausa e retoma sozinho. Acompanhe no Dashboard (filas).
             </li>
           </ul>
         </section>
@@ -81,91 +100,120 @@ export default function Ajuda() {
           <h2>E-mails do relatório</h2>
           <ul>
             <li>
-              Na aba <strong>Destinatários</strong> você adiciona, edita ou remove quem recebe o
-              relatório automático.
+              Em <strong>Destinatários</strong> você adiciona, edita, <strong>inativa</strong> ou
+              remove quem recebe o relatório.
             </li>
-            {!isAdmin ? (
-              <li>Usuários comuns só gerenciam os e-mails do próprio estabelecimento.</li>
-            ) : (
-              <li>Admin escolhe a unidade e gerencia os e-mails de cada uma.</li>
-            )}
             <li>
-              O relatório traz: notas integradas (uma vez), erros de PR (uma vez), pendências sem
-              de-para/lote (podem repetir até resolver).
+              Inativar mantém o cadastro, mas o e-mail deixa de receber até reativar.
             </li>
-            {isAdmin ? (
+            <li>
+              Relatório: integradas e erros de PR (uma vez); pendências de-para/lote (podem
+              repetir até resolver).
+            </li>
+            {config ? (
               <li>
                 Ligar/desligar o envio automático por unidade fica em{" "}
-                <strong>Configurações</strong> (somente admin).
+                <strong>Configurações</strong>.
               </li>
             ) : (
-              <li>
-                Ligar/desligar o disparo automático é feito pelo administrador em Configurações.
-              </li>
+              <li>Ligar/desligar o disparo automático é feito pelo administrador global.</li>
             )}
           </ul>
         </section>
 
-        {isAdmin ? (
-          <>
-            <section className="card help-card">
-              <h2>Configurações (somente admin)</h2>
-              <ul>
-                <li>
-                  <strong>Scheduler</strong> — liga/desliga a extração automática da unidade.
-                </li>
-                <li>
-                  <strong>Relatório</strong> — liga/desligar o e-mail automático da unidade.
-                </li>
-                <li>
-                  É possível <strong>enviar relatório agora</strong> para testar o SMTP e a
-                  classificação.
-                </li>
-              </ul>
-            </section>
+        <section className="card help-card">
+          <h2>Senha e login</h2>
+          <ul>
+            <li>
+              Cada usuário pode ter um <strong>e-mail</strong> cadastrado (aba Usuários, se você
+              gerencia logins).
+            </li>
+            <li>
+              Em <strong>Esqueci minha senha</strong> no login: informe o e-mail, receba o código
+              e defina a nova senha.
+            </li>
+            <li>Sem e-mail cadastrado, o reset por código não funciona.</li>
+          </ul>
+        </section>
 
-            <section className="card help-card">
-              <h2>Logs e Acessos (somente admin)</h2>
-              <ul>
-                <li>
-                  <strong>Logs</strong> — histórico de processamento das notas (status, tipo de
-                  erro, retorno PR), com filtros e paginação.
-                </li>
-                <li>
-                  <strong>Acessos</strong> — auditoria de quem entrou no painel: IP, usuário, ação,
-                  data e status HTTP. Use filtros de data/perfil/ação para investigar.
-                </li>
-                <li>
-                  <strong>Usuários</strong> — cadastro de logins e vínculo com estabelecimento.
-                </li>
-              </ul>
-            </section>
-          </>
-        ) : (
+        {localManager ? (
           <section className="card help-card">
-            <h2>O que o usuário comum não vê</h2>
+            <h2>Usuários</h2>
             <ul>
-              <li>Configurações de ligar/desligar API e e-mail automático.</li>
-              <li>Logs globais de processamento e auditoria de acessos/IP.</li>
-              <li>Cadastro de usuários de outras unidades.</li>
+              <li>
+                {isAdmin
+                  ? "Admin global cria qualquer perfil (usuário, adm local, adm, dev) em qualquer unidade."
+                  : "Adm local cria usuários e outros adm locais só no próprio estabelecimento."}
+              </li>
+              <li>
+                Cadastre o e-mail do usuário para permitir recuperação de senha.
+              </li>
+              <li>
+                Perfis: <strong>usuário</strong> (operação), <strong>adm local</strong> (unidade),{" "}
+                <strong>adm</strong> (global), <strong>dev</strong> (auditoria/filas).
+              </li>
             </ul>
           </section>
-        )}
+        ) : null}
+
+        <section className="card help-card">
+          <h2>Logs</h2>
+          <ul>
+            <li>
+              Histórico de processamento (status, tipo de erro, retorno PR), com filtros e
+              paginação.
+            </li>
+            {!isAdmin && !isDev(role) ? (
+              <li>Escopo limitado ao seu estabelecimento.</li>
+            ) : (
+              <li>Admin/dev veem todas as unidades (com filtro opcional).</li>
+            )}
+          </ul>
+        </section>
+
+        {seesAcesso ? (
+          <section className="card help-card">
+            <h2>Acessos (somente dev)</h2>
+            <ul>
+              <li>
+                Auditoria de quem entrou no painel: IP, usuário, ação, data e status HTTP.
+              </li>
+              <li>Use filtros de data/perfil/ação para investigar.</li>
+            </ul>
+          </section>
+        ) : null}
+
+        {config ? (
+          <section className="card help-card">
+            <h2>Configurações (somente admin)</h2>
+            <ul>
+              <li>
+                <strong>Scheduler</strong> — liga/desliga a extração automática da unidade.
+              </li>
+              <li>
+                <strong>Relatório</strong> — liga/desliga o e-mail automático.
+              </li>
+              <li>
+                É possível <strong>enviar relatório agora</strong> para testar SMTP e classificação.
+              </li>
+            </ul>
+          </section>
+        ) : null}
 
         <section className="card help-card">
           <h2>Dúvidas rápidas</h2>
           <ul>
             <li>
-              <strong>A nota some da lista?</strong> Só aparece após aplicar filtros. Limpar
-              filtros esvazia a tabela até nova pesquisa.
+              <strong>A nota some da lista?</strong> Só aparece após aplicar filtros.
             </li>
             <li>
               <strong>Recebi o mesmo e-mail várias vezes?</strong> Sem de-para/lote continua
-              avisando. Integrada com sucesso e retorno PR entram só uma vez.
+              avisando. Integrada e retorno PR entram só uma vez. Confira se o destinatário está
+              ativo.
             </li>
             <li>
-              <strong>Tabela cortada na tela?</strong> Role horizontalmente; a coluna Ações fica
-              fixa à direita.
+              <strong>Botão Sair sumiu?</strong> A sidebar fixa o rodapé; role a lista de menus se
+              necessário.
             </li>
           </ul>
         </section>

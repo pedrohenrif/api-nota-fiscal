@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-ERRO_TIPOS = ("sem_depara", "sem_lote", "retorno_pr", "outro")
+ERRO_TIPOS = ("sem_depara", "sem_lote", "retorno_pr", "timeout_pr", "outro")
 
 
 def classify_error_tipo(message: str | None) -> str | None:
@@ -8,6 +8,18 @@ def classify_error_tipo(message: str | None) -> str | None:
         return None
 
     text = str(message).lower()
+
+    if any(
+        token in text
+        for token in (
+            "timed out",
+            "timeout",
+            "readtimeout",
+            "connecttimeout",
+            "circuit breaker",
+        )
+    ):
+        return "timeout_pr"
 
     if any(
         token in text

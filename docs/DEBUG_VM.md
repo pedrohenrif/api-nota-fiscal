@@ -6,6 +6,7 @@ Complementa:
 
 - [INSTALACAO_VM.md](./INSTALACAO_VM.md) — instalação inicial
 - [OPERACAO_E_TESTES.md](./OPERACAO_E_TESTES.md) — fluxo operacional e testes
+- [DEBUG_PR_SQLSERVER.md](./DEBUG_PR_SQLSERVER.md) — SELECTs no SQL Server do PR (NF / itens / lotes / controle)
 
 ---
 

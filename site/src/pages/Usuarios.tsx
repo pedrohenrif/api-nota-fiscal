@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
+import { creatableRoles, isGlobalAdmin, roleLabel } from "../lib/roles";
 import type { Role, Usuario } from "../types";
 
 export default function Usuarios() {
+  const { user } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [estabelecimentos, setEstabelecimentos] = useState<string[]>([]);
 
+  const allowedRoles = useMemo(() => creatableRoles(user?.role), [user?.role]);
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("usuario");
   const [estabelecimento, setEstabelecimento] = useState("");
@@ -29,12 +34,18 @@ export default function Usuarios() {
     api<string[]>("/estabelecimentos")
       .then((lista) => {
         setEstabelecimentos(lista);
-        if (lista.length > 0) {
-          setEstabelecimento(lista[0]);
-        }
+        if (lista.length > 0) setEstabelecimento(lista[0]);
       })
       .catch(() => undefined);
   }, [carregarUsuarios]);
+
+  useEffect(() => {
+    if (allowedRoles.length && !allowedRoles.includes(role)) {
+      setRole(allowedRoles[0]);
+    }
+  }, [allowedRoles, role]);
+
+  const needsEstab = role === "usuario" || role === "adm_local";
 
   const criar = async (event: FormEvent) => {
     event.preventDefault();
@@ -47,12 +58,18 @@ export default function Usuarios() {
         body: {
           username,
           password,
+          email: email.trim() || null,
           role,
-          estabelecimento: role === "usuario" ? estabelecimento : null,
+          estabelecimento: needsEstab
+            ? isGlobalAdmin(user?.role)
+              ? estabelecimento
+              : user?.estabelecimento
+            : null,
         },
       });
       setMensagem(`Usuário "${username}" criado com sucesso.`);
       setUsername("");
+      setEmail("");
       setPassword("");
       setRole("usuario");
       await carregarUsuarios();
@@ -66,6 +83,11 @@ export default function Usuarios() {
   return (
     <div className="page">
       <h1>Usuários</h1>
+      <p className="page-lead">
+        {isGlobalAdmin(user?.role)
+          ? "Cadastro global de usuários (incluindo adm local e dev)."
+          : `Cadastro de usuários da unidade ${user?.estabelecimento ?? ""}.`}
+      </p>
 
       <div className="card">
         <h2>Novo usuário</h2>
@@ -75,7 +97,16 @@ export default function Usuarios() {
             <input value={username} onChange={(e) => setUsername(e.target.value)} required />
           </label>
           <label>
-            Senha
+            E-mail (para recuperar senha)
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="opcional, mas recomendado"
+            />
+          </label>
+          <label>
+            Senha inicial
             <input
               type="password"
               value={password}
@@ -86,11 +117,14 @@ export default function Usuarios() {
           <label>
             Papel
             <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-              <option value="usuario">Usuário</option>
-              <option value="adm">Administrador</option>
+              {allowedRoles.map((r) => (
+                <option key={r} value={r}>
+                  {roleLabel(r)}
+                </option>
+              ))}
             </select>
           </label>
-          {role === "usuario" && (
+          {needsEstab && isGlobalAdmin(user?.role) && (
             <label>
               Estabelecimento
               <select
@@ -105,6 +139,11 @@ export default function Usuarios() {
               </select>
             </label>
           )}
+          {needsEstab && !isGlobalAdmin(user?.role) && (
+            <div className="estab-fixed">
+              Estabelecimento: <strong>{user?.estabelecimento}</strong>
+            </div>
+          )}
 
           <div className="form-actions">
             <button className="btn-primary" type="submit" disabled={salvando}>
@@ -118,25 +157,29 @@ export default function Usuarios() {
       </div>
 
       <div className="card">
-        <h2>Usuários cadastrados</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Papel</th>
-              <th>Estabelecimento</th>
-            </tr>
-          </thead>
-          <tbody>
-            {usuarios.map((u) => (
-              <tr key={u.id}>
-                <td>{u.username}</td>
-                <td>{u.role === "adm" ? "Administrador" : "Usuário"}</td>
-                <td>{u.estabelecimento ?? "Todos"}</td>
+        <h2>Cadastrados</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuário</th>
+                <th>E-mail</th>
+                <th>Papel</th>
+                <th>Estabelecimento</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {usuarios.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.username}</td>
+                  <td>{u.email || "—"}</td>
+                  <td>{roleLabel(u.role)}</td>
+                  <td>{u.estabelecimento || "Todos"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

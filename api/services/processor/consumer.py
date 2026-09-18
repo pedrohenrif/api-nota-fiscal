@@ -8,9 +8,12 @@ import pika
 from services.processor.config import (
     CONSUMER_IDLE_SLEEP_SECONDS,
     MAX_PROCESSING_RETRIES,
+    PR_CIRCUIT_RETRY_DELAY_SECONDS,
+    PUBLISH_DEAD_LETTER_QUEUE,
     RABBITMQ_QUEUE_DEAD,
     RABBITMQ_QUEUE_RAW_NF,
     RABBITMQ_URL,
+    RETRY_BACKOFF_MAX_SECONDS,
     RETRY_DELAY_SECONDS,
 )
 from services.processor.db import SessionLocal
@@ -18,8 +21,10 @@ from services.processor.depara import apply_depara_rules
 from services.processor.dispatcher import send_to_pr
 from services.processor.error_tipo import classify_error_tipo
 from services.processor.migrations import parse_payload_metadata
+from services.processor.pr_circuit import is_pr_timeout_error, pr_circuit
 from services.processor.pr_response import extract_pr_success_info
 from services.processor.repository import get_sent_record, upsert_processing_status
+from services.processor.runtime_stats import runtime_stats
 from services.processor.tasy_writeback import mark_tasy_integrated
 
 logger = logging.getLogger(__name__)
@@ -51,16 +56,32 @@ def _should_wait_retry(payload: dict) -> bool:
     return retry_dt > datetime.now(timezone.utc)
 
 
-def _schedule_retry(payload: dict) -> None:
+def _retry_delay_seconds(retries_after_increment: int, *, circuit_open: bool = False) -> int:
+    if circuit_open:
+        return max(PR_CIRCUIT_RETRY_DELAY_SECONDS, RETRY_DELAY_SECONDS)
+    # backoff exponencial: 10, 20, 40... ate o teto
+    delay = RETRY_DELAY_SECONDS * (2 ** max(retries_after_increment - 1, 0))
+    return min(delay, RETRY_BACKOFF_MAX_SECONDS)
+
+
+def _schedule_retry(payload: dict, *, circuit_open: bool = False) -> None:
     retries = int(payload.get("_retry_count", 0)) + 1
     payload["_retry_count"] = retries
+    delay = _retry_delay_seconds(retries, circuit_open=circuit_open)
     payload["_next_retry_at"] = (
-        datetime.now(timezone.utc) + timedelta(seconds=RETRY_DELAY_SECONDS)
+        datetime.now(timezone.utc) + timedelta(seconds=delay)
     ).isoformat()
     _publish(RABBITMQ_QUEUE_RAW_NF, payload)
 
 
+def _republish_deferred(payload: dict) -> None:
+    """Recoloca no fim da fila sem incrementar tentativas (espera _next_retry_at)."""
+    _publish(RABBITMQ_QUEUE_RAW_NF, payload)
+
+
 def _publish_dead_letter(payload: dict, error_message: str) -> None:
+    if not PUBLISH_DEAD_LETTER_QUEUE:
+        return
     payload["_dead_letter_reason"] = error_message
     payload["_dead_letter_at"] = datetime.now(timezone.utc).isoformat()
     _publish(RABBITMQ_QUEUE_DEAD, payload)
@@ -97,7 +118,30 @@ def process_payload(payload: dict) -> str:
                 nf,
                 meta.get("nr_sequencia"),
             )
+            runtime_stats.record_success(nf=nf, result="sent_idempotent")
             return "sent"
+
+        if not pr_circuit.allow_request():
+            snap = pr_circuit.snapshot()
+            error_message = (
+                "PR circuit breaker aberto apos timeouts consecutivos "
+                f"({snap['open_remaining_seconds']}s restantes)."
+            )
+            upsert_processing_status(
+                db,
+                estabelecimento=estabelecimento,
+                nf=nf,
+                status="retry_pending",
+                tentativas=retries,
+                erro=error_message,
+                erro_tipo="timeout_pr",
+                **meta,
+            )
+            _schedule_retry(payload, circuit_open=True)
+            runtime_stats.record_failure(
+                nf=nf, result="circuit_open", error=error_message
+            )
+            return "retry_scheduled"
 
         mapped_payload = apply_depara_rules(payload)
         pr_result = send_to_pr(mapped_payload)
@@ -145,6 +189,7 @@ def process_payload(payload: dict) -> str:
             pr_mensagem=pr_mensagem,
             **meta,
         )
+        runtime_stats.record_success(nf=nf, result="sent")
         return "sent"
     except Exception as exc:  # pragma: no cover
         error_message = str(exc)
@@ -161,6 +206,9 @@ def process_payload(payload: dict) -> str:
                 **meta,
             )
             _publish_dead_letter(payload, error_message=error_message)
+            runtime_stats.record_failure(
+                nf=nf, result="dead_letter", error=error_message
+            )
             return "dead_letter"
         upsert_processing_status(
             db,
@@ -172,7 +220,10 @@ def process_payload(payload: dict) -> str:
             erro_tipo=erro_tipo,
             **meta,
         )
-        _schedule_retry(payload)
+        _schedule_retry(payload, circuit_open=is_pr_timeout_error(error_message))
+        runtime_stats.record_failure(
+            nf=nf, result="retry_scheduled", error=error_message
+        )
         return "retry_scheduled"
     finally:
         db.close()
@@ -190,7 +241,11 @@ def consume_once() -> int:
         payload = json.loads(body.decode("utf-8"))
         result = process_payload(payload)
         if result == "defer":
-            channel.basic_nack(delivery_tag=method_frame.delivery_tag, requeue=True)
+            # Nao faz nack+requeue (volta para a cabeca e trava a fila).
+            # Ack + republica no fim, respeitando _next_retry_at.
+            channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+            _republish_deferred(payload)
+            processed = 1
         else:
             channel.basic_ack(delivery_tag=method_frame.delivery_tag)
             processed = 1
@@ -204,6 +259,7 @@ def consume_forever(stop_signal) -> None:
         try:
             consume_once()
         except Exception:
+            logger.exception("Falha no loop do consumer")
             time.sleep(CONSUMER_IDLE_SLEEP_SECONDS)
             continue
         time.sleep(CONSUMER_IDLE_SLEEP_SECONDS)

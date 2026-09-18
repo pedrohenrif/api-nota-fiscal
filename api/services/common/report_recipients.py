@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Session
 
 from services.common.estab_config import Base, SessionLocal, engine
@@ -34,6 +34,7 @@ class ReportDestinatario(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     estabelecimento = Column(String(80), nullable=False, index=True)
     email = Column(String(255), nullable=False)
+    ativo = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -48,6 +49,15 @@ def ensure_report_recipients_table() -> None:
     if _table_ready:
         return
     Base.metadata.create_all(bind=engine, tables=[ReportDestinatario.__table__])
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE report_destinatario "
+                "ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT TRUE"
+            )
+        )
     _seed_from_env_if_empty()
     _table_ready = True
 
@@ -106,7 +116,10 @@ def get_recipients(estabelecimento: str) -> list[str]:
     try:
         rows = (
             db.query(ReportDestinatario.email)
-            .filter(ReportDestinatario.estabelecimento == estabelecimento)
+            .filter(
+                ReportDestinatario.estabelecimento == estabelecimento,
+                ReportDestinatario.ativo.is_(True),
+            )
             .order_by(ReportDestinatario.email.asc())
             .all()
         )
@@ -139,6 +152,7 @@ def list_recipients(
                 "id": row.id,
                 "estabelecimento": row.estabelecimento,
                 "email": row.email,
+                "ativo": bool(getattr(row, "ativo", True)),
                 "created_at": row.created_at,
                 "updated_at": row.updated_at,
             }
@@ -153,6 +167,7 @@ def create_recipient(
     *,
     estabelecimento: str,
     email: str,
+    ativo: bool = True,
     db: Session | None = None,
 ) -> dict[str, Any]:
     ensure_report_recipients_table()
@@ -172,7 +187,11 @@ def create_recipient(
         )
         if exists:
             raise ValueError("E-mail ja cadastrado para este estabelecimento")
-        row = ReportDestinatario(estabelecimento=estabelecimento, email=normalized)
+        row = ReportDestinatario(
+            estabelecimento=estabelecimento,
+            email=normalized,
+            ativo=bool(ativo),
+        )
         session.add(row)
         session.commit()
         session.refresh(row)
@@ -180,6 +199,7 @@ def create_recipient(
             "id": row.id,
             "estabelecimento": row.estabelecimento,
             "email": row.email,
+            "ativo": bool(row.ativo),
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
@@ -194,12 +214,12 @@ def create_recipient(
 def update_recipient(
     *,
     recipient_id: int,
-    email: str,
+    email: Optional[str] = None,
+    ativo: Optional[bool] = None,
     allowed_estabelecimento: Optional[str] = None,
     db: Session | None = None,
 ) -> dict[str, Any]:
     ensure_report_recipients_table()
-    normalized = validate_email(email)
     own = db is None
     session = db or SessionLocal()
     try:
@@ -212,24 +232,29 @@ def update_recipient(
             raise LookupError("Destinatario nao encontrado")
         if allowed_estabelecimento and row.estabelecimento != allowed_estabelecimento:
             raise PermissionError("Sem permissao para este estabelecimento")
-        duplicate = (
-            session.query(ReportDestinatario)
-            .filter(
-                ReportDestinatario.estabelecimento == row.estabelecimento,
-                ReportDestinatario.email == normalized,
-                ReportDestinatario.id != recipient_id,
+        if email is not None:
+            normalized = validate_email(email)
+            duplicate = (
+                session.query(ReportDestinatario)
+                .filter(
+                    ReportDestinatario.estabelecimento == row.estabelecimento,
+                    ReportDestinatario.email == normalized,
+                    ReportDestinatario.id != recipient_id,
+                )
+                .first()
             )
-            .first()
-        )
-        if duplicate:
-            raise ValueError("E-mail ja cadastrado para este estabelecimento")
-        row.email = normalized
+            if duplicate:
+                raise ValueError("E-mail ja cadastrado para este estabelecimento")
+            row.email = normalized
+        if ativo is not None:
+            row.ativo = bool(ativo)
         session.commit()
         session.refresh(row)
         return {
             "id": row.id,
             "estabelecimento": row.estabelecimento,
             "email": row.email,
+            "ativo": bool(row.ativo),
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
