@@ -8,6 +8,7 @@ import pika
 from services.processor.config import (
     CONSUMER_IDLE_SLEEP_SECONDS,
     MAX_PROCESSING_RETRIES,
+    MAX_RETRY_AGE_DAYS,
     PR_CIRCUIT_RETRY_DELAY_SECONDS,
     PUBLISH_DEAD_LETTER_QUEUE,
     RABBITMQ_QUEUE_DEAD,
@@ -56,6 +57,38 @@ def _should_wait_retry(payload: dict) -> bool:
     return retry_dt > datetime.now(timezone.utc)
 
 
+def _ensure_first_attempt_at(payload: dict) -> datetime:
+    raw = payload.get("_first_attempt_at")
+    if isinstance(raw, str) and raw:
+        try:
+            return datetime.fromisoformat(raw)
+        except ValueError:
+            pass
+    now = datetime.now(timezone.utc)
+    payload["_first_attempt_at"] = now.isoformat()
+    return now
+
+
+def _retry_age_exceeded(payload: dict) -> bool:
+    """True se a nota ja passou do prazo maximo de retry (default 2 dias)."""
+    if MAX_RETRY_AGE_DAYS <= 0:
+        return False
+    first = _ensure_first_attempt_at(payload)
+    if first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
+    age = datetime.now(timezone.utc) - first
+    return age >= timedelta(days=MAX_RETRY_AGE_DAYS)
+
+
+def _dead_letter_age_message() -> str:
+    days = MAX_RETRY_AGE_DAYS
+    days_label = int(days) if float(days).is_integer() else days
+    return (
+        f"Prazo maximo de retry excedido ({days_label} dia(s)). "
+        "Nota movida para dead_letter — reprocessar manualmente no painel apos corrigir a causa."
+    )
+
+
 def _retry_delay_seconds(retries_after_increment: int, *, circuit_open: bool = False) -> int:
     if circuit_open:
         return max(PR_CIRCUIT_RETRY_DELAY_SECONDS, RETRY_DELAY_SECONDS)
@@ -67,6 +100,7 @@ def _retry_delay_seconds(retries_after_increment: int, *, circuit_open: bool = F
 def _schedule_retry(payload: dict, *, circuit_open: bool = False) -> None:
     retries = int(payload.get("_retry_count", 0)) + 1
     payload["_retry_count"] = retries
+    _ensure_first_attempt_at(payload)
     delay = _retry_delay_seconds(retries, circuit_open=circuit_open)
     payload["_next_retry_at"] = (
         datetime.now(timezone.utc) + timedelta(seconds=delay)
@@ -87,6 +121,32 @@ def _publish_dead_letter(payload: dict, error_message: str) -> None:
     _publish(RABBITMQ_QUEUE_DEAD, payload)
 
 
+def _mark_dead_letter(
+    db,
+    *,
+    payload: dict,
+    estabelecimento: str,
+    nf: str,
+    retries: int,
+    error_message: str,
+    erro_tipo: str | None,
+    meta: dict,
+) -> str:
+    upsert_processing_status(
+        db,
+        estabelecimento=estabelecimento,
+        nf=nf,
+        status="dead_letter",
+        tentativas=retries,
+        erro=error_message,
+        erro_tipo=erro_tipo,
+        **meta,
+    )
+    _publish_dead_letter(payload, error_message=error_message)
+    runtime_stats.record_failure(nf=nf, result="dead_letter", error=error_message)
+    return "dead_letter"
+
+
 def _status_kwargs(payload: dict) -> dict:
     nr_sequencia, fornecedor, data_nf = parse_payload_metadata(payload)
     return {
@@ -104,6 +164,17 @@ def process_payload(payload: dict) -> str:
     db = SessionLocal()
     try:
         if _should_wait_retry(payload):
+            if _retry_age_exceeded(payload):
+                return _mark_dead_letter(
+                    db,
+                    payload=payload,
+                    estabelecimento=estabelecimento,
+                    nf=nf,
+                    retries=retries,
+                    error_message=_dead_letter_age_message(),
+                    erro_tipo="timeout_pr",
+                    meta=meta,
+                )
             return "defer"
 
         already_sent = get_sent_record(
@@ -122,8 +193,19 @@ def process_payload(payload: dict) -> str:
             return "sent"
 
         if not pr_circuit.allow_request():
+            _ensure_first_attempt_at(payload)
+            if _retry_age_exceeded(payload):
+                return _mark_dead_letter(
+                    db,
+                    payload=payload,
+                    estabelecimento=estabelecimento,
+                    nf=nf,
+                    retries=retries,
+                    error_message=_dead_letter_age_message(),
+                    erro_tipo="timeout_pr",
+                    meta=meta,
+                )
             # Nao incrementa tentativa nem republica com retry++ (isso inchava a fila).
-            # Marca espera e devolve "defer" para recolocar no fim sem churn de contadores.
             snap = pr_circuit.snapshot()
             wait_s = max(int(snap.get("open_remaining_seconds") or 0), PR_CIRCUIT_RETRY_DELAY_SECONDS)
             payload["_next_retry_at"] = (
@@ -200,33 +282,41 @@ def process_payload(payload: dict) -> str:
     except Exception as exc:  # pragma: no cover
         error_message = str(exc)
         erro_tipo = classify_error_tipo(error_message)
-        if retries + 1 >= MAX_PROCESSING_RETRIES:
-            upsert_processing_status(
+        _ensure_first_attempt_at(payload)
+        next_retries = retries + 1
+        is_timeout = is_pr_timeout_error(error_message) or erro_tipo == "timeout_pr"
+        # Timeout/PR lento: so encerra por prazo (2 dias). Outros erros: esgota por contagem.
+        age_exceeded = _retry_age_exceeded(payload)
+        count_exceeded = (not is_timeout) and next_retries >= MAX_PROCESSING_RETRIES
+
+        if age_exceeded or count_exceeded:
+            final_error = (
+                f"{_dead_letter_age_message()} Ultimo erro: {error_message}"
+                if age_exceeded
+                else error_message
+            )
+            return _mark_dead_letter(
                 db,
+                payload=payload,
                 estabelecimento=estabelecimento,
                 nf=nf,
-                status="dead_letter",
-                tentativas=retries + 1,
-                erro=error_message,
+                retries=next_retries,
+                error_message=final_error,
                 erro_tipo=erro_tipo,
-                **meta,
+                meta=meta,
             )
-            _publish_dead_letter(payload, error_message=error_message)
-            runtime_stats.record_failure(
-                nf=nf, result="dead_letter", error=error_message
-            )
-            return "dead_letter"
+
         upsert_processing_status(
             db,
             estabelecimento=estabelecimento,
             nf=nf,
             status="retry_pending",
-            tentativas=retries + 1,
+            tentativas=next_retries,
             erro=error_message,
             erro_tipo=erro_tipo,
             **meta,
         )
-        _schedule_retry(payload, circuit_open=is_pr_timeout_error(error_message))
+        _schedule_retry(payload, circuit_open=is_timeout)
         runtime_stats.record_failure(
             nf=nf, result="retry_scheduled", error=error_message
         )

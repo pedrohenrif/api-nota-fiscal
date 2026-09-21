@@ -6,9 +6,12 @@ RABBITMQ_QUEUE_DEAD = os.getenv("RABBITMQ_QUEUE_DEAD", "nf.dead")
 CONSUMER_IDLE_SLEEP_SECONDS = float(os.getenv("CONSUMER_IDLE_SLEEP_SECONDS", "2"))
 RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", "10"))
 RETRY_BACKOFF_MAX_SECONDS = int(os.getenv("RETRY_BACKOFF_MAX_SECONDS", "300"))
+# Erros de negocio (sem de-para, retorno PR, etc.): esgota rapido.
 MAX_PROCESSING_RETRIES = int(os.getenv("MAX_PROCESSING_RETRIES", "3"))
+# Timeout/PR lento: pode retentar ate este prazo; depois dead_letter (reprocesso manual).
+MAX_RETRY_AGE_DAYS = float(os.getenv("MAX_RETRY_AGE_DAYS", "2"))
 # Se false, dead_letter fica so no Postgres (nao enche nf.dead).
-PUBLISH_DEAD_LETTER_QUEUE = os.getenv("PUBLISH_DEAD_LETTER_QUEUE", "true").lower() in (
+PUBLISH_DEAD_LETTER_QUEUE = os.getenv("PUBLISH_DEAD_LETTER_QUEUE", "false").lower() in (
     "1",
     "true",
     "yes",
