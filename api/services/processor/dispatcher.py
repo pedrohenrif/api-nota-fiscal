@@ -36,6 +36,12 @@ def _safe_json(data: Any) -> str:
         return str(data)
 
 
+def _debug(msg: str, *args: Any) -> None:
+    """Usa WARNING para aparecer no docker logs mesmo com nivel INFO filtrado."""
+    if PR_DEBUG_HTTP:
+        logger.warning(msg, *args)
+
+
 def send_to_pr(payload: dict) -> dict:
     estabelecimento = payload.get("estabelecimento")
     if not estabelecimento:
@@ -56,57 +62,59 @@ def send_to_pr(payload: dict) -> dict:
 
     nf = payload.get("nf") or body.get("nf") or body.get("NF")
     nr_seq = payload.get("nrSequencia") or body.get("nrSequencia")
-    debug = PR_DEBUG_HTTP
 
-    if debug:
-        logger.info(
-            "[PR DEBUG] POST inicio estab=%s nf=%s nr_sequencia=%s url=%s timeout=%ss",
-            estabelecimento,
-            nf,
-            nr_seq,
-            url,
-            PR_HTTP_TIMEOUT_SECONDS,
-        )
-        logger.info("[PR DEBUG] request body=%s", _clip(_safe_json(body)))
+    _debug(
+        "[PR DEBUG] POST inicio estab=%s nf=%s nr_sequencia=%s url=%s timeout=%ss",
+        estabelecimento,
+        nf,
+        nr_seq,
+        url,
+        PR_HTTP_TIMEOUT_SECONDS,
+    )
+    _debug("[PR DEBUG] request body=%s", _clip(_safe_json(body)))
 
     started = time.perf_counter()
+    response: httpx.Response | None = None
     try:
         with httpx.Client(timeout=PR_HTTP_TIMEOUT_SECONDS) as client:
             response = client.post(url, json=body, headers=headers)
             elapsed_ms = int((time.perf_counter() - started) * 1000)
-            if debug:
-                raw_text = response.text or ""
-                logger.info(
-                    "[PR DEBUG] POST resposta estab=%s nf=%s status=%s elapsed_ms=%s "
-                    "content_type=%s body_len=%s",
-                    estabelecimento,
-                    nf,
-                    response.status_code,
-                    elapsed_ms,
-                    response.headers.get("content-type"),
-                    len(raw_text),
-                )
-                logger.info("[PR DEBUG] response body=%s", _clip(raw_text))
+            raw_text = response.text or ""
+            _debug(
+                "[PR DEBUG] POST resposta estab=%s nf=%s status=%s elapsed_ms=%s "
+                "content_type=%s body_len=%s",
+                estabelecimento,
+                nf,
+                response.status_code,
+                elapsed_ms,
+                response.headers.get("content-type"),
+                len(raw_text),
+            )
+            _debug("[PR DEBUG] response body=%s", _clip(raw_text))
             parsed = parse_pr_response(response)
     except Exception as exc:
         elapsed_ms = int((time.perf_counter() - started) * 1000)
+        resp_status = response.status_code if response is not None else None
+        resp_body = _clip(response.text) if response is not None else None
         logger.error(
-            "[PR DEBUG] POST falhou estab=%s nf=%s nr_sequencia=%s elapsed_ms=%s erro=%s",
+            "[PR DEBUG] POST falhou estab=%s nf=%s nr_sequencia=%s elapsed_ms=%s "
+            "http_status=%s erro=%s response_body=%s",
             estabelecimento,
             nf,
             nr_seq,
             elapsed_ms,
+            resp_status,
             exc,
+            resp_body,
         )
         pr_circuit.record_failure(is_timeout=is_pr_timeout_error(str(exc)))
         raise
 
     pr_circuit.record_success()
-    if debug:
-        logger.info(
-            "[PR DEBUG] POST ok/parseado estab=%s nf=%s keys=%s",
-            estabelecimento,
-            nf,
-            list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__,
-        )
+    _debug(
+        "[PR DEBUG] POST ok/parseado estab=%s nf=%s keys=%s",
+        estabelecimento,
+        nf,
+        list(parsed.keys()) if isinstance(parsed, dict) else type(parsed).__name__,
+    )
     return parsed

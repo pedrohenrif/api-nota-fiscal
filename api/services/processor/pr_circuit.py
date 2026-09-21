@@ -24,6 +24,9 @@ def is_pr_timeout_error(message: str | None) -> bool:
             "connecttimeout",
             "connect timeout",
             "timeout exceeded",
+            "execution timeout",
+            "timeout expired",
+            "timeout period elapsed",
         )
     )
 
