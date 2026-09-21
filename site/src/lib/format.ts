@@ -1,5 +1,12 @@
 export function formatData(value?: string | null): string {
   if (!value) return "-";
+  // Data de calendário (Tasy/DT_EMISSAO): usa YYYY-MM-DD do ISO sem converter fuso.
+  // Evita 2026-09-17T00:00:00Z virar 16/09 no horário de Brasília.
+  const isoDate = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (isoDate) {
+    const [, year, month, day] = isoDate;
+    return `${day}/${month}/${year}`;
+  }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString("pt-BR");
