@@ -122,10 +122,17 @@ def process_payload(payload: dict) -> str:
             return "sent"
 
         if not pr_circuit.allow_request():
+            # Nao incrementa tentativa nem republica com retry++ (isso inchava a fila).
+            # Marca espera e devolve "defer" para recolocar no fim sem churn de contadores.
             snap = pr_circuit.snapshot()
+            wait_s = max(int(snap.get("open_remaining_seconds") or 0), PR_CIRCUIT_RETRY_DELAY_SECONDS)
+            payload["_next_retry_at"] = (
+                datetime.now(timezone.utc) + timedelta(seconds=wait_s)
+            ).isoformat()
             error_message = (
                 "PR circuit breaker aberto apos timeouts consecutivos "
-                f"({snap['open_remaining_seconds']}s restantes)."
+                f"({snap.get('open_remaining_seconds', 0)}s restantes). "
+                "Consumer em pausa/backpressure."
             )
             upsert_processing_status(
                 db,
@@ -137,11 +144,10 @@ def process_payload(payload: dict) -> str:
                 erro_tipo="timeout_pr",
                 **meta,
             )
-            _schedule_retry(payload, circuit_open=True)
             runtime_stats.record_failure(
                 nf=nf, result="circuit_open", error=error_message
             )
-            return "retry_scheduled"
+            return "defer"
 
         mapped_payload = apply_depara_rules(payload)
         pr_result = send_to_pr(mapped_payload)
@@ -229,6 +235,20 @@ def process_payload(payload: dict) -> str:
         db.close()
 
 
+def _sleep_while_circuit_open() -> bool:
+    """Se o circuit estiver aberto, dorme ate fechar. Retorna True se dormiu."""
+    if pr_circuit.allow_request():
+        return False
+    snap = pr_circuit.snapshot()
+    wait_s = max(int(snap.get("open_remaining_seconds") or 0), 5)
+    logger.warning(
+        "Circuit breaker PR aberto — pausando consumer por %ss (sem drenar/republicar fila)",
+        wait_s,
+    )
+    time.sleep(wait_s)
+    return True
+
+
 def consume_once() -> int:
     processed = 0
     params = pika.URLParameters(RABBITMQ_URL)
@@ -257,6 +277,9 @@ def consume_once() -> int:
 def consume_forever(stop_signal) -> None:
     while not stop_signal.is_set():
         try:
+            # Backpressure: com PR fora (circuit aberto), nao gira a fila inteira.
+            if _sleep_while_circuit_open():
+                continue
             consume_once()
         except Exception:
             logger.exception("Falha no loop do consumer")

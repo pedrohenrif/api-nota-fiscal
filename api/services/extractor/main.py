@@ -19,7 +19,7 @@ from services.extractor.extractor import (
     extract_single_note,
     mark_note_integrated,
 )
-from services.extractor.publisher import publish_raw_note
+from services.extractor.publisher import publish_raw_note, should_pause_for_backpressure
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,22 @@ def _run_extraction_cycle(estabelecimento: str | None = None) -> dict:
     else:
         # Ciclo automatico: apenas unidades com scheduler_enabled=true no Postgres.
         targets = list_scheduler_enabled()
+
+    pause, depth = should_pause_for_backpressure()
+    if pause and estabelecimento is None:
+        # So o scheduler automatico respeita backpressure; emissao manual continua.
+        logger.warning(
+            "Backpressure: nf.raw=%s (>= limite). Scheduler pausado neste ciclo.",
+            depth,
+        )
+        return {
+            "published_count": 0,
+            "estabelecimentos": targets,
+            "errors": [],
+            "backpressure": True,
+            "queue_depth": depth,
+        }
+
     published = 0
     errors: list[dict] = []
     oracle_client = MockOracleClient() if USE_MOCK_ORACLE else None
@@ -66,6 +82,8 @@ def _run_extraction_cycle(estabelecimento: str | None = None) -> dict:
         "published_count": published,
         "estabelecimentos": targets,
         "errors": errors,
+        "backpressure": False,
+        "queue_depth": depth,
     }
 
 

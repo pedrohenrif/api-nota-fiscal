@@ -17,6 +17,8 @@ PR_HTTP_TIMEOUT_SECONDS = float(os.getenv("PR_HTTP_TIMEOUT_SECONDS", "90"))
 PR_CIRCUIT_FAILURE_THRESHOLD = int(os.getenv("PR_CIRCUIT_FAILURE_THRESHOLD", "5"))
 PR_CIRCUIT_OPEN_SECONDS = int(os.getenv("PR_CIRCUIT_OPEN_SECONDS", "120"))
 PR_CIRCUIT_RETRY_DELAY_SECONDS = int(os.getenv("PR_CIRCUIT_RETRY_DELAY_SECONDS", "60"))
+# true = loga request/response do POST /NF no processor (desligar apos debug).
+PR_DEBUG_HTTP = os.getenv("PR_DEBUG_HTTP", "false").lower() in ("1", "true", "yes")
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
 
 # homolog | production
