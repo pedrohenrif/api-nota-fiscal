@@ -7,10 +7,11 @@ Stack: React + Vite + TypeScript.
 ## Funcionalidades
 
 - Tela de login (autenticação via JWT no `web-api-service`).
-- Papéis:
-  - **Administrador**: emite nota para qualquer um dos 4 estabelecimentos e cria novos usuários.
-  - **Usuário**: emite nota apenas do próprio estabelecimento.
+- Papéis: `adm`, `adm_local`, `usuario`, `dev` (detalhes em `docs/dev/DOCUMENTACAO_TECNICA.md`).
+- Recuperação de senha por e-mail (“Esqueci minha senha”).
 - Acompanhamento do status das notas processadas.
+
+Documentação: [`docs/README.md`](../docs/README.md).
 
 ## Rodando localmente
 

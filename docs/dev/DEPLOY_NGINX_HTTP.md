@@ -6,10 +6,10 @@ Quando houver domínio e SSL, use a seção final (Certbot).
 Complementa:
 
 - [OPERACAO_E_TESTES.md](./OPERACAO_E_TESTES.md)
-- [DEBUG_VM.md](./DEBUG_VM.md)
+- [DEBUG_VM.md](../erros/DEBUG_VM.md)
 - [OPERACAO_SCHEDULER_E_EMAIL.md](./OPERACAO_SCHEDULER_E_EMAIL.md)
 
-Arquivo de exemplo do nginx: [deploy/nginx-isms-nf.conf](./deploy/nginx-isms-nf.conf)
+Arquivo de exemplo do nginx: [deploy/nginx-isms-nf.conf](../../deploy/nginx-isms-nf.conf)
 
 ---
 

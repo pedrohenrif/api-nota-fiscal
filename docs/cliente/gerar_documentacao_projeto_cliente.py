@@ -15,7 +15,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 BRAND = RGBColor(0x91, 0x3D, 0x4C)
 OUT = Path(__file__).resolve().parent / "Documentacao_Projeto_Integracao_Notas_Fiscais.docx"
-ASSETS = Path(__file__).resolve().parent / "assets"
+ASSETS = Path(__file__).resolve().parent.parent / "assets"
 LOGO_ISMS = ASSETS / "logo_isms.png"
 LOGO_GHR_CANDIDATES = (
     ASSETS / "logo_ghr.png",
@@ -200,8 +200,8 @@ def main() -> None:
     )
     doc.add_paragraph(
         "Cada unidade pode ter a rotina automática e o e-mail ligados ou desligados de forma "
-        "independente. Usuários comuns enxergam apenas o estabelecimento ao qual estão vinculados; "
-        "administradores têm visão de todas as unidades."
+        "independente. Usuários comuns e administradores locais enxergam apenas o estabelecimento "
+        "ao qual estão vinculados; administradores globais têm visão de todas as unidades."
     )
 
     # 3
@@ -302,10 +302,15 @@ def main() -> None:
     doc.add_heading("5.5 Tentativas e reemissão", level=2)
     add_bullets(
         [
-            "Falhas transitórias ou de retorno do PR podem gerar novas tentativas automáticas até o limite configurado;",
-            "Após esgotar tentativas, a nota fica em falha definitiva (dead letter) e pode ser reemitida manualmente no painel após correção da causa;",
-            "Reemitir só deve ser usado depois de corrigida a pendência (de-para, lote, valor etc.).",
+            "Erros de negócio (sem de-para, sem lote, retorno de validação do PR): poucas tentativas automáticas rápidas;",
+            "Indisponibilidade ou lentidão do PR (timeouts): o sistema pode retentar automaticamente por até 2 dias corridos;",
+            "Após esgotar tentativas ou o prazo de 2 dias, a nota fica em falha definitiva (dead letter) e sai da fila automática;",
+            "A partir daí, só há reemissão manual no painel — depois de corrigida a causa (de-para, lote, valor, PR estável etc.).",
         ]
+    )
+    doc.add_paragraph(
+        "Essa janela de até 2 dias evita congestionamento infinito da operação quando o PR está "
+        "instável, mantendo as notas visíveis como falha definitiva para tratamento pela unidade."
     )
 
     # 6
@@ -334,6 +339,7 @@ def main() -> None:
                 "retorno_pr",
                 "Analisar mensagem do PR (ex.: valor divergente, nota já existente); corrigir causa e reemitir",
             ],
+            ["timeout_pr", "PR lento/indisponível; aguardar ou reemitir após estabilizar"],
             ["outro", "Analisar mensagem e logs; tratar conforme o caso"],
         ],
     )

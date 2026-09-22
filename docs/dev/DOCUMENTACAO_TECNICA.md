@@ -2,16 +2,16 @@
 
 Documento para desenvolvedores. Complementa:
 
-- [api/README.md](./api/README.md)
 - [OPERACAO_E_TESTES.md](./OPERACAO_E_TESTES.md)
 - [OPERACAO_SCHEDULER_E_EMAIL.md](./OPERACAO_SCHEDULER_E_EMAIL.md)
 - [DEPLOY_NGINX_HTTP.md](./DEPLOY_NGINX_HTTP.md)
 - [GO_LIVE_PRODUCAO.md](./GO_LIVE_PRODUCAO.md)
-- [DEBUG_VM.md](./DEBUG_VM.md)
-- Manual do cliente: `docs/Manual_Cliente_Painel_Integracao_Notas_Fiscais.docx`
-- Esta documentação em DOCX: `docs/Documentacao_Tecnica_Integracao_Notas_Fiscais.docx` (gerar com `docs/gerar_documentacao_tecnica.py`)
+- [../erros/DEBUG_VM.md](../erros/DEBUG_VM.md)
+- [../erros/ERROS_RECORRENTES.md](../erros/ERROS_RECORRENTES.md) — plantão / férias
+- Cliente: [../cliente/PROCESSO_E_REGRAS.md](../cliente/PROCESSO_E_REGRAS.md)
+- Índice: [../README.md](../README.md)
 
-Versão: 1.0 — Julho/2026
+Versão: 1.1 — Setembro/2026
 
 ---
 
@@ -156,7 +156,12 @@ Arquivo: `processor/consumer.py`
 3. `apply_depara_rules` — valida vínculo Tasy↔PR.
 4. `send_to_pr` — `POST {base}/NF`.
 5. Sucesso → upsert `status=sent` + write-back Tasy.
-6. Falha → classifica `erro_tipo`, incrementa tentativas; até `MAX_PROCESSING_RETRIES` (3) reencaminha com delay; senão `dead_letter` + publica em `nf.dead`.
+6. Falha → classifica `erro_tipo`:
+   - Erros de negócio: até `MAX_PROCESSING_RETRIES` (3) com backoff; senão `dead_letter`.
+   - Timeout / PR lento: retenta até `MAX_RETRY_AGE_DAYS` (default **2 dias**); senão `dead_letter`.
+   - Publicação em `nf.dead` (Rabbit) só se `PUBLISH_DEAD_LETTER_QUEUE=true` (default **false** — DLQ só no Postgres).
+7. Circuit breaker: após N timeouts consecutivos, pausa chamadas ao PR; consumer **não** drena/republica a fila.
+8. Extractor (scheduler): se `nf.raw >= QUEUE_BACKPRESSURE_MAX` (200), **não** publica novas notas no ciclo automático.
 
 ### 4.4 Write-back `dt_integracao`
 
@@ -226,8 +231,17 @@ Arquivo: `processor/depara.py`
 
 ### 7.1 `usuario`
 
-Login do painel. Roles: `adm` | `usuario`.  
-Admin: `estabelecimento` null. Usuário: estabelecimento obrigatório.
+Login do painel. Roles: `adm` | `adm_local` | `usuario` | `dev`.
+
+| Role | Escopo |
+|------|--------|
+| `adm` | Global (config, usuários, todas unidades) |
+| `adm_local` | Usuários/destinatários/logs da própria unidade |
+| `usuario` | Operação da unidade |
+| `dev` | Operação multiunidade + Auditoria + filas (sem Configurações) |
+
+Campo `email` (opcional, único) habilita `/auth/forgot-password` + `/auth/reset-password`.  
+Admin global / `dev`: `estabelecimento` null. `adm_local` / `usuario`: estabelecimento obrigatório.
 
 ### 7.2 `nota_processamento`
 
@@ -334,13 +348,24 @@ Arquivo: `processor/error_tipo.py`
 | `sem_depara` | de-para, depara, sem vinculo, vazio no pr… |
 | `sem_lote` | sem lote, lotenf, observacao field is required, lote+obrigat… |
 | `retorno_pr` | pr http, pr:, ja integrada, produto informado… |
+| `timeout_pr` | timed out, execution timeout, timeout expired, circuit breaker… |
 | `outro` | fallback |
 
-Retries:
+Retries (`processor/config.py` + `consumer.py`):
 
-- `MAX_PROCESSING_RETRIES` (default 3)
-- `RETRY_DELAY_SECONDS` (default 10)
-- Após esgotar → `dead_letter` + fila `nf.dead`
+| Variável | Default | Uso |
+|----------|---------|-----|
+| `MAX_PROCESSING_RETRIES` | 3 | Erros de negócio → `dead_letter` |
+| `MAX_RETRY_AGE_DAYS` | **2** | Timeout/PR lento: prazo máximo de retry |
+| `RETRY_DELAY_SECONDS` | 10 | Base do backoff |
+| `RETRY_BACKOFF_MAX_SECONDS` | 300 | Teto do backoff |
+| `PUBLISH_DEAD_LETTER_QUEUE` | **false** | Se true, também publica em `nf.dead` |
+| `QUEUE_BACKPRESSURE_MAX` | 200 | Scheduler não publica com fila alta |
+| `PR_DEBUG_HTTP` | false | Loga request/response do POST `/NF` |
+
+Circuit: `PR_CIRCUIT_FAILURE_THRESHOLD`, `PR_CIRCUIT_OPEN_SECONDS`, `PR_CIRCUIT_RETRY_DELAY_SECONDS`.
+
+Após `dead_letter`: só reemissão manual (`POST /notas/reemitir`).
 
 ---
 

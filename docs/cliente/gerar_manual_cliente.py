@@ -53,7 +53,7 @@ def main() -> None:
     for _ in range(2):
         doc.add_paragraph()
 
-    logo_path = Path(__file__).resolve().parent / "assets" / "logo_isms.png"
+    logo_path = Path(__file__).resolve().parent.parent / "assets" / "logo_isms.png"
     if logo_path.is_file():
         logo_p = doc.add_paragraph()
         logo_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -352,8 +352,10 @@ def main() -> None:
         ],
     )
     doc.add_paragraph(
-        "Em caso de erro no envio ao PR, o sistema realiza até 3 tentativas automáticas. "
-        "Se todas falharem, a nota fica em falha definitiva e pode ser reemitida manualmente "
+        "Em caso de erro no envio ao PR:\n"
+        "• Erros de negócio: poucas tentativas automáticas rápidas;\n"
+        "• Lentidão/indisponibilidade do PR (timeout): retentativas por até 2 dias corridos;\n"
+        "• Depois disso, a nota fica em falha definitiva e pode ser reemitida manualmente "
         "depois que a causa for corrigida."
     )
 

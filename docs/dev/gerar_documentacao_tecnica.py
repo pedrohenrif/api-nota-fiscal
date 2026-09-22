@@ -10,10 +10,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 MD_PATH = ROOT / "DOCUMENTACAO_TECNICA.md"
-OUT_PATH = Path(__file__).resolve().parent / "Documentacao_Tecnica_Integracao_Notas_Fiscais.docx"
-LOGO_PATH = Path(__file__).resolve().parent / "assets" / "logo_isms.png"
+OUT_PATH = ROOT / "Documentacao_Tecnica_Integracao_Notas_Fiscais.docx"
+LOGO_PATH = ROOT.parent / "assets" / "logo_isms.png"
 BRAND = RGBColor(0x91, 0x3D, 0x4C)
 
 

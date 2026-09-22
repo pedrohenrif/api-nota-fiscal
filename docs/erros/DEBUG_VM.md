@@ -4,9 +4,10 @@ Documento de referência para **diagnóstico de falhas**, **consulta de logs** e
 
 Complementa:
 
-- [INSTALACAO_VM.md](./INSTALACAO_VM.md) — instalação inicial
-- [OPERACAO_E_TESTES.md](./OPERACAO_E_TESTES.md) — fluxo operacional e testes
-- [DEBUG_PR_SQLSERVER.md](./DEBUG_PR_SQLSERVER.md) — SELECTs no SQL Server do PR (NF / itens / lotes / controle)
+- [ERROS_RECORRENTES.md](./ERROS_RECORRENTES.md) — plantão / férias
+- [../dev/INSTALACAO_VM.md](../dev/INSTALACAO_VM.md) — instalação inicial
+- [../dev/OPERACAO_E_TESTES.md](../dev/OPERACAO_E_TESTES.md) — fluxo operacional e testes
+- [DEBUG_PR_SQLSERVER.md](./DEBUG_PR_SQLSERVER.md) — SELECTs no SQL Server do PR
 
 ---
 
@@ -29,7 +30,7 @@ curl -s http://localhost:8003/health   # web-api (painel)
 # VITE_API_BASE_URL=http://IP-DA-VM:8003
 ```
 
-**Stack completa esperada (5 serviços Docker):**
+**Stack completa esperada (6 serviços Docker):**
 
 | Container | Porta | Função |
 |-----------|-------|--------|
@@ -38,6 +39,7 @@ curl -s http://localhost:8003/health   # web-api (painel)
 | `extractor-service` | 8001 | Consulta Oracle + publica na fila |
 | `processor-service` | 8002 | De-para + envio ao PR |
 | `web-api-service` | 8003 | API do painel (login, emissão, listagem) |
+| `report-service` | 8004 | Relatório por e-mail |
 
 Se `web-api-service` não aparecer no `docker compose ps`, o site **não funciona** mesmo com os outros serviços OK.
 
@@ -76,8 +78,8 @@ Use a coluna **Erro** do painel e o sintoma para saber **qual serviço olhar**:
 | Nota emitida mas não aparece na tabela | processor | `docker compose logs processor-service --tail 80` |
 | Coluna **Erro** com `PR HTTP ...` | processor + config PR | logs processor + `.env` PR_* |
 | Coluna **Erro** com Oracle / DPY / DPI | extractor | logs extractor + Oracle |
-| Status `retry_pending` | processor (retry automático) | aguardar ou ver logs |
-| Status `dead_letter` | processor esgotou tentativas | Reemitir no site após corrigir causa |
+| Status `retry_pending` | processor (retry automático; timeout até 2 dias) | aguardar ou ver logs |
+| Status `dead_letter` | esgotou tentativas/prazo | Reemitir no site após corrigir causa |
 
 ---
 
@@ -333,16 +335,16 @@ docker compose exec db psql -U tasy -d tasy_db -c \
 | `dataNF ... DateTime` | data em formato errado | datas devem ser ISO `2026-03-05T00:00:00Z` |
 | `PR HTTP 404` | URL base errada | `PR_BASE_URL_*` **sem** `/NF` no final |
 | `O produto informado não existe` | `codProd` no POST era `CodProd` interno do de-para | POST /NF usa codigo **Tasy**; de-para so valida vinculo |
-| `retry_pending` | falha temporária, retry automático | corrigir causa e aguardar ou reemitir |
-| `dead_letter` | 3 tentativas esgotadas | corrigir causa → **Reemitir** no site |
+| `retry_pending` | falha temporária, retry automático (negócio ~3x; timeout até 2 dias) | corrigir causa e aguardar ou reemitir |
+| `dead_letter` | esgotou tentativas/prazo | corrigir causa → **Reemitir** no site |
 
 ### Status no painel
 
 | Status | Significado |
 |--------|-------------|
 | `sent` | Enviado ao PR com sucesso |
-| `retry_pending` | Falhou; processor tentará de novo (até 3x, intervalo ~10 s) |
-| `dead_letter` | Esgotou tentativas; mensagem pode estar em `nf.dead` no RabbitMQ |
+| `retry_pending` | Falhou; processor tentará de novo (negócio: até 3x; timeout/PR: até 2 dias) |
+| `dead_letter` | Esgotou tentativas/prazo; reemitir no site (Rabbit `nf.dead` só se PUBLISH_DEAD_LETTER_QUEUE=true) |
 
 ---
 
@@ -392,7 +394,7 @@ EXTRACTOR_URL=http://localhost:8001   # override no compose: extractor-service:8
 Checklist para quem assumir a operação:
 
 - [ ] Caminho do projeto na VM documentado
-- [ ] `docker compose ps` com 5 serviços Up
+- [ ] `docker compose ps` com 6 serviços Up (inclui report-service)
 - [ ] `curl` health 8001/8002/8003 OK
 - [ ] Teste Oracle (`SELECT 1 FROM dual`) OK
 - [ ] Site acessível e login funcionando

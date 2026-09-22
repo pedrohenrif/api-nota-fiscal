@@ -351,8 +351,8 @@ Lista payloads que seriam publicados na fila (nao grava status no painel).
 | Status | Significado |
 |--------|-------------|
 | `sent` | Enviado ao PR com sucesso |
-| `retry_pending` | Falhou; processor tentara de novo (ate 3x) |
-| `dead_letter` | Esgotou tentativas; usar **Reemitir** no site |
+| `retry_pending` | Falhou; processor tentara de novo (negocio: ate 3x; timeout: ate 2 dias) |
+| `dead_letter` | Esgotou tentativas/prazo; usar **Reemitir** no site |
 
 Erros do PR aparecem na coluna **Erro** (HTTP 4xx/5xx ou mensagem de negocio no corpo da resposta).
 

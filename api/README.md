@@ -3,6 +3,9 @@
 Projeto de integração de notas fiscais entre o Tasy (origem) e o PR (destino),
 com arquitetura baseada em microserviços e um painel web para operação.
 
+**Documentação completa:** [`../docs/README.md`](../docs/README.md)  
+**Plantão / férias:** [`../docs/erros/ERROS_RECORRENTES.md`](../docs/erros/ERROS_RECORRENTES.md)
+
 ## Arquitetura oficial (MVP)
 
 ```text
