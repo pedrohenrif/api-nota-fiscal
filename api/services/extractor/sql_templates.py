@@ -22,6 +22,10 @@ WHERE
     AND nf.dt_integracao IS NULL
     AND TO_CHAR(nf.dt_atualizacao_estoque, 'YYYY-MM-DD') >= :dt_atualizacao_estoque_min
     AND TO_CHAR(nf.dt_emissao, 'YYYY-MM-DD') >= :dt_emissao_min
+    AND (
+        :competencia_mes_atual = 0
+        OR TO_CHAR(nf.dt_emissao, 'YYYY-MM') = TO_CHAR(SYSDATE, 'YYYY-MM')
+    )
     AND nf.cd_estabelecimento = :cd_estabelecimento
     AND nf.ie_situacao NOT IN (2, 3)
     AND nf.cd_operacao_nf IN ({cd_operacao_nf_filter})

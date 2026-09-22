@@ -34,7 +34,7 @@ def _fetch_middleware_sent(estabelecimento: str, since: datetime) -> dict[str, d
         SELECT nr_sequencia, nf, status, pr_id, pr_mensagem, updated_at
         FROM nota_processamento
         WHERE estabelecimento = :estabelecimento
-          AND status = 'sent'
+          AND status IN ('sent', 'sent_existente')
           AND updated_at >= :since
         ORDER BY updated_at DESC
         """
@@ -90,7 +90,7 @@ def _fetch_all_sent_keys(estabelecimento: str) -> set[str]:
         SELECT nr_sequencia, nf
         FROM nota_processamento
         WHERE estabelecimento = :estabelecimento
-          AND status = 'sent'
+          AND status IN ('sent', 'sent_existente')
         """
     )
     db = SessionLocal()
@@ -121,6 +121,7 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
             "dt_atualizacao_estoque_min": profile.dt_atualizacao_estoque_min,
             "dt_emissao_min": profile.dt_emissao_min,
             "cd_estabelecimento": profile.cd_estabelecimento,
+            "competencia_mes_atual": 1 if COMPETENCIA_MES_ATUAL_ONLY else 0,
         },
     )
 

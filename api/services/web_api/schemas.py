@@ -34,6 +34,10 @@ class UsuarioCreate(BaseModel):
     estabelecimento: Optional[str] = None
 
 
+class UsuarioUpdate(BaseModel):
+    email: Optional[str] = Field(default=None, max_length=255)
+
+
 class UsuarioOut(BaseModel):
     id: int
     username: str

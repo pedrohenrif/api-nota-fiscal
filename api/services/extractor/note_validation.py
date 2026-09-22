@@ -111,6 +111,22 @@ def validate_note_row(
             operacoes_liberadas=operacoes,
         )
 
+    # Competencia do mes corrente (dt_emissao / Data NF).
+    from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
+
+    if COMPETENCIA_MES_ATUAL_ONLY and dt_emissao:
+        hoje = date.today()
+        if dt_emissao.year != hoje.year or dt_emissao.month != hoje.month:
+            return NoteValidationResult(
+                valido=False,
+                mensagem=(
+                    f"Nota fora da competencia do mes atual "
+                    f"(emissao {dt_emissao.isoformat()}; esperado {hoje.year:04d}-{hoje.month:02d})."
+                ),
+                cd_operacao_nf=cd_operacao_int,
+                operacoes_liberadas=operacoes,
+            )
+
     return NoteValidationResult(
         valido=True,
         cd_operacao_nf=cd_operacao_int,

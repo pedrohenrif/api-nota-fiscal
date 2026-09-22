@@ -4,7 +4,7 @@ import { useAuth } from "../auth";
 import NotaDetalheModal from "../components/notas/NotaDetalheModal";
 import Pagination from "../components/Pagination";
 import { formatDataHora, buildQuery } from "../lib/format";
-import { formatRetornoPr } from "../lib/notas";
+import { formatRetornoPr, statusDisplay } from "../lib/notas";
 import { isDev, isGlobalAdmin } from "../lib/roles";
 import type { NotaStatus, NotaStatusPage } from "../types";
 import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
@@ -182,6 +182,7 @@ export default function Logs() {
                 logs.map((log) => {
                   const expandido = expandidoId === log.id;
                   const retorno = formatRetornoPr(log);
+                  const statusUi = statusDisplay(log);
                   const detalhe = retorno.kind === "error" ? log.erro : retorno.text;
                   return (
                     <Fragment key={log.id}>
@@ -195,7 +196,7 @@ export default function Logs() {
                         <td>{log.nr_sequencia ?? "—"}</td>
                         <td>{log.estabelecimento}</td>
                         <td>
-                          <span className={`status status-${log.status}`}>{log.status}</span>
+                          <span className={`status ${statusUi.className}`}>{statusUi.label}</span>
                         </td>
                         <td>
                           {log.erro_tipo ? (
@@ -211,7 +212,9 @@ export default function Logs() {
                           className={
                             retorno.kind === "success"
                               ? "pr-success-cell log-erro-cell"
-                              : "log-erro-cell"
+                              : retorno.kind === "warning"
+                                ? "pr-warning-cell log-erro-cell"
+                                : "log-erro-cell"
                           }
                           onClick={(e) => {
                             if (retorno.kind !== "error") return;

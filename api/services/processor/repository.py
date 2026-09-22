@@ -14,7 +14,7 @@ def get_sent_record(
 ) -> NotaProcessamento | None:
     query = db.query(NotaProcessamento).filter(
         NotaProcessamento.estabelecimento == estabelecimento,
-        NotaProcessamento.status == "sent",
+        NotaProcessamento.status.in_(("sent", "sent_existente")),
     )
     if nr_sequencia:
         return query.filter(NotaProcessamento.nr_sequencia == nr_sequencia).first()
@@ -71,7 +71,7 @@ def upsert_processing_status(
             record.pr_id = pr_id
         if pr_mensagem is not None:
             record.pr_mensagem = pr_mensagem
-        if status == "sent":
+        if status in ("sent", "sent_existente"):
             record.erro = None
             record.erro_tipo = None
     db.commit()

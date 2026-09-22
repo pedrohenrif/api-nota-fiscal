@@ -269,7 +269,7 @@ def process_payload(payload: dict) -> str:
             db,
             estabelecimento=estabelecimento,
             nf=nf,
-            status="sent",
+            status="sent_existente" if ja_existia_no_pr else "sent",
             tentativas=retries + 1,
             erro=None,
             erro_tipo=None,
@@ -277,8 +277,10 @@ def process_payload(payload: dict) -> str:
             pr_mensagem=pr_mensagem,
             **meta,
         )
-        runtime_stats.record_success(nf=nf, result="sent")
-        return "sent"
+        runtime_stats.record_success(
+            nf=nf, result="sent_existente" if ja_existia_no_pr else "sent"
+        )
+        return "sent_existente" if ja_existia_no_pr else "sent"
     except Exception as exc:  # pragma: no cover
         error_message = str(exc)
         erro_tipo = classify_error_tipo(error_message)

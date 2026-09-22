@@ -176,15 +176,26 @@ export interface NotaDetalhe extends NotaStatus {
 export const NOTA_STATUS_OPTIONS = [
   { value: "", label: "Todos" },
   { value: "sent", label: "Enviado" },
+  { value: "sent_existente", label: "Já no PR" },
   { value: "retry_pending", label: "Aguardando retry" },
   { value: "dead_letter", label: "Falha definitiva" },
   { value: "pending", label: "Pendente" },
 ] as const;
 
+export const NOTA_STATUS_LABELS: Record<string, string> = {
+  sent: "Enviado",
+  sent_existente: "Já no PR",
+  retry_pending: "Aguardando retry",
+  dead_letter: "Falha definitiva",
+  pending: "Pendente",
+};
+
 export const ERRO_TIPO_OPTIONS = [
   { value: "", label: "Todos os tipos" },
   { value: "sem_depara", label: "Sem de-para" },
   { value: "sem_lote", label: "Sem lote" },
+  { value: "sem_fornecedor", label: "Sem fornecedor" },
+  { value: "conta_contabil", label: "Conta contábil" },
   { value: "retorno_pr", label: "Retorno PR" },
   { value: "timeout_pr", label: "Timeout PR" },
   { value: "outro", label: "Outro" },
@@ -193,6 +204,8 @@ export const ERRO_TIPO_OPTIONS = [
 export const ERRO_TIPO_LABELS: Record<string, string> = {
   sem_depara: "Sem de-para",
   sem_lote: "Sem lote",
+  sem_fornecedor: "Sem fornecedor",
+  conta_contabil: "Conta contábil",
   retorno_pr: "Retorno PR",
   timeout_pr: "Timeout PR",
   outro: "Outro",

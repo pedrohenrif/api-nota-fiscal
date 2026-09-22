@@ -50,6 +50,19 @@ def create_user(
     return user
 
 
+def get_user_by_id(db: Session, user_id: int) -> Optional[Usuario]:
+    return db.query(Usuario).filter(Usuario.id == user_id).first()
+
+
+def update_user_email(
+    db: Session, user: Usuario, email: Optional[str]
+) -> Usuario:
+    user.email = (email or "").strip().lower() or None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def set_user_password(db: Session, user: Usuario, password: str) -> Usuario:
     user.hashed_password = hash_password(password)
     db.commit()

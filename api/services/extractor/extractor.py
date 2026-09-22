@@ -7,6 +7,7 @@ from services.extractor.extraction_profiles import PROFILES
 from services.extractor.note_validation import validate_note_row
 from services.extractor.oracle_client import build_oracle_client
 from services.extractor.schemas import NotaFiscalPRPayload
+from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
 from services.extractor.sql_templates import (
     HEADER_NOTE_BY_NR_SEQUENCIA_SQL,
     ITEMS_DIAGNOSTICO_SQL,
@@ -200,6 +201,7 @@ def extract_pending_notes(
             "dt_atualizacao_estoque_min": profile.dt_atualizacao_estoque_min,
             "dt_emissao_min": profile.dt_emissao_min,
             "cd_estabelecimento": profile.cd_estabelecimento,
+            "competencia_mes_atual": 1 if COMPETENCIA_MES_ATUAL_ONLY else 0,
         },
     )
 

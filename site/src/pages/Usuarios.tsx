@@ -17,6 +17,9 @@ export default function Usuarios() {
   const [role, setRole] = useState<Role>("usuario");
   const [estabelecimento, setEstabelecimento] = useState("");
 
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -79,6 +82,26 @@ export default function Usuarios() {
       await carregarUsuarios();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao criar usuário");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const salvarEmail = async (userId: number) => {
+    setErro(null);
+    setMensagem(null);
+    setSalvando(true);
+    try {
+      await api<Usuario>(`/usuarios/${userId}`, {
+        method: "PATCH",
+        body: { email: editEmail.trim() || null },
+      });
+      setMensagem("E-mail atualizado.");
+      setEditandoId(null);
+      setEditEmail("");
+      await carregarUsuarios();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao editar e-mail");
     } finally {
       setSalvando(false);
     }
@@ -203,34 +226,89 @@ export default function Usuarios() {
                 <th>E-mail</th>
                 <th>Papel</th>
                 <th>Estabelecimento</th>
+                <th className="actions-col">Ações</th>
               </tr>
             </thead>
             <tbody>
               {carregando ? (
                 <tr>
-                  <td colSpan={4} className="empty">
+                  <td colSpan={5} className="empty">
                     Carregando...
                   </td>
                 </tr>
               ) : usuarios.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="empty">
+                  <td colSpan={5} className="empty">
                     Nenhum usuário cadastrado.
                   </td>
                 </tr>
               ) : (
-                usuarios.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <strong>{u.username}</strong>
-                    </td>
-                    <td className="cell-email">{u.email || "—"}</td>
-                    <td>
-                      <span className={`role-pill role-pill--${u.role}`}>{roleLabel(u.role)}</span>
-                    </td>
-                    <td>{u.estabelecimento || "Todos"}</td>
-                  </tr>
-                ))
+                usuarios.map((u) => {
+                  const editando = editandoId === u.id;
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <strong>{u.username}</strong>
+                      </td>
+                      <td className="cell-email">
+                        {editando ? (
+                          <input
+                            type="email"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            placeholder="e-mail"
+                            autoComplete="off"
+                          />
+                        ) : (
+                          u.email || "—"
+                        )}
+                      </td>
+                      <td>
+                        <span className={`role-pill role-pill--${u.role}`}>{roleLabel(u.role)}</span>
+                      </td>
+                      <td>{u.estabelecimento || "Todos"}</td>
+                      <td className="actions-cell">
+                        {editando ? (
+                          <div className="actions-inline">
+                            <button
+                              type="button"
+                              className="btn-table"
+                              disabled={salvando}
+                              onClick={() => void salvarEmail(u.id)}
+                            >
+                              Salvar
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-ghost"
+                              disabled={salvando}
+                              onClick={() => {
+                                setEditandoId(null);
+                                setEditEmail("");
+                              }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-table"
+                            disabled={salvando}
+                            onClick={() => {
+                              setEditandoId(u.id);
+                              setEditEmail(u.email || "");
+                              setErro(null);
+                              setMensagem(null);
+                            }}
+                          >
+                            Editar e-mail
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

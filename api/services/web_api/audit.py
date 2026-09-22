@@ -35,6 +35,7 @@ _ACTION_MAP: list[tuple[str, str, str]] = [
     ("GET", "/ops/filas", "ops_filas"),
     ("GET", "/usuarios", "listar_usuarios"),
     ("POST", "/usuarios", "criar_usuario"),
+    ("PATCH", "/usuarios/", "editar_usuario"),
     ("GET", "/estabelecimentos", "listar_estabelecimentos"),
 ]
 

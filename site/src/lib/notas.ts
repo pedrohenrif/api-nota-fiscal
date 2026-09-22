@@ -23,11 +23,32 @@ export function atualizarNotaDoTasy(
 
 export function formatRetornoPr(nota: NotaStatus): {
   text: string;
-  kind: "success" | "error" | "empty";
+  kind: "success" | "warning" | "error" | "empty";
   title?: string;
 } {
+  if (nota.status === "sent_existente") {
+    const mensagem =
+      nota.pr_mensagem?.trim() ||
+      "Já existe lançamento no PR com a mesma NF e FORNECEDOR; tratado como integrado.";
+    const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
+    return {
+      text: `${mensagem}${idSuffix}`,
+      kind: "warning",
+      title: nota.pr_id != null ? `ID PR: ${nota.pr_id}` : mensagem,
+    };
+  }
+
   if (nota.status === "sent") {
     const mensagem = nota.pr_mensagem?.trim() || "Nota enviada ao PR com sucesso";
+    // Retrocompat: registros antigos gravados como sent com mensagem de já existente
+    if (/ja existe|já existe/i.test(mensagem)) {
+      const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
+      return {
+        text: `${mensagem}${idSuffix}`,
+        kind: "warning",
+        title: nota.pr_id != null ? `ID PR: ${nota.pr_id}` : mensagem,
+      };
+    }
     const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
     return {
       text: `${mensagem}${idSuffix}`,
@@ -41,4 +62,25 @@ export function formatRetornoPr(nota: NotaStatus): {
   }
 
   return { text: "—", kind: "empty" };
+}
+
+export function statusDisplay(nota: NotaStatus): { label: string; className: string } {
+  if (
+    nota.status === "sent" &&
+    nota.pr_mensagem &&
+    /ja existe|já existe/i.test(nota.pr_mensagem)
+  ) {
+    return { label: "Já no PR", className: "status-sent_existente" };
+  }
+  const labels: Record<string, string> = {
+    sent: "Enviado",
+    sent_existente: "Já no PR",
+    retry_pending: "Aguardando retry",
+    dead_letter: "Falha definitiva",
+    pending: "Pendente",
+  };
+  return {
+    label: labels[nota.status] ?? nota.status,
+    className: `status-${nota.status}`,
+  };
 }

@@ -176,6 +176,18 @@ def apply_depara_rules(payload: dict) -> dict:
     if not estabelecimento:
         raise ValueError("Payload sem estabelecimento para de-para")
 
+    fornecedor = payload.get("fornecedor") or {}
+    cnpj = ""
+    if isinstance(fornecedor, dict):
+        cnpj = str(fornecedor.get("cnpj") or "").strip()
+    elif fornecedor is not None:
+        cnpj = str(fornecedor).strip()
+    if not cnpj or cnpj in {"0", "00000000000000"}:
+        raise ValueError(
+            "Sem fornecedor: CNPJ/emitente ausente ou invalido na nota. "
+            "Corrija o cadastro do fornecedor no Tasy e reemitir."
+        )
+
     pr_config = get_pr_config(estabelecimento)
     mapped = deepcopy(payload)
     produtos = mapped.get("produtos") or []

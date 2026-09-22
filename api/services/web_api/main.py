@@ -85,6 +85,7 @@ from services.web_api.schemas import (
     Token,
     UsuarioCreate,
     UsuarioOut,
+    UsuarioUpdate,
 )
 from services.common.report_recipients import validate_email as validate_user_email
 from services.web_api.security import create_access_token, verify_password
@@ -444,6 +445,44 @@ def create_usuario(
         estabelecimento=estabelecimento,
         email=email,
     )
+
+
+@app.patch("/usuarios/{user_id}", response_model=UsuarioOut)
+def atualizar_usuario(
+    user_id: int,
+    payload: UsuarioUpdate,
+    current_user: Usuario = Depends(require_user_manager),
+    db: Session = Depends(get_db),
+) -> Usuario:
+    target = repository.get_user_by_id(db, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    if (
+        not is_global_admin(current_user.role)
+        and target.estabelecimento != current_user.estabelecimento
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Adm local so edita usuarios do proprio estabelecimento",
+        )
+
+    if "email" not in payload.model_fields_set:
+        return target
+
+    email = None
+    if payload.email:
+        try:
+            email = validate_user_email(payload.email)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        existing = repository.get_user_by_email(db, email)
+        if existing is not None and existing.id != target.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="E-mail ja cadastrado"
+            )
+
+    return repository.update_user_email(db, target, email)
 
 
 def _resolve_estabelecimento(current_user: Usuario, requested: str | None) -> str:

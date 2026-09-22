@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { formatData, formatDataHora, formatMoeda, formatNumero } from "../../lib/format";
-import { atualizarNotaDoTasy, podeReemitir } from "../../lib/notas";
+import { atualizarNotaDoTasy, podeReemitir, statusDisplay } from "../../lib/notas";
 import type { DeparaStatus, NotaDetalhe, NotaStatus, ProdutoNF } from "../../types";
 import Modal from "../ui/Modal";
 
@@ -91,7 +91,9 @@ export default function NotaDetalheModal({
   }, [nota]);
 
   const preview = detalhe?.preview;
-  const integradaPr = detalhe?.status === "sent";
+  const integradaPr =
+    detalhe?.status === "sent" || detalhe?.status === "sent_existente";
+  const statusUi = detalhe ? statusDisplay(detalhe) : null;
   const podeFalhou = detalhe ? podeReemitir(detalhe) : false;
   const msgConsulta = detalhe?.consulta_mensagem ?? "";
   const msgTasyIntegrada = /dt_integracao|integrada no tasy/i.test(msgConsulta);
@@ -171,7 +173,9 @@ export default function NotaDetalheModal({
           {erro ? <div className="alert-error">{erro}</div> : null}
           {info ? <div className="alert-success">{info}</div> : null}
           <div className="detalhe-status-row">
-            <span className={`status status-${detalhe.status}`}>{detalhe.status}</span>
+            {statusUi ? (
+              <span className={`status ${statusUi.className}`}>{statusUi.label}</span>
+            ) : null}
             <span className="detalhe-meta">
               Tentativas: <strong>{detalhe.tentativas}</strong>
             </span>

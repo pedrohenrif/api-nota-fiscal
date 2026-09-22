@@ -1,5 +1,5 @@
 import { formatData } from "../../lib/format";
-import { formatRetornoPr, podeReemitir } from "../../lib/notas";
+import { formatRetornoPr, podeReemitir, statusDisplay } from "../../lib/notas";
 import type { NotaStatus } from "../../types";
 import { ERRO_TIPO_LABELS } from "../../types";
 
@@ -55,6 +55,7 @@ export default function NotasTable({
               const isElegivel = podeReemitir(nota);
               const reemitindo = reemitindoId === nota.id;
               const retorno = formatRetornoPr(nota);
+              const statusUi = statusDisplay(nota);
 
               return (
                 <tr
@@ -71,7 +72,7 @@ export default function NotasTable({
                   <td className="cell-date">{formatData(nota.data_nf)}</td>
                   <td className="cell-estab">{nota.estabelecimento}</td>
                   <td>
-                    <span className={`status status-${nota.status}`}>{nota.status}</span>
+                    <span className={`status ${statusUi.className}`}>{statusUi.label}</span>
                   </td>
                   <td>
                     {nota.erro_tipo ? (
@@ -87,9 +88,11 @@ export default function NotasTable({
                     className={
                       retorno.kind === "success"
                         ? "pr-success-cell"
-                        : retorno.kind === "error"
-                          ? "erro-cell"
-                          : undefined
+                        : retorno.kind === "warning"
+                          ? "pr-warning-cell"
+                          : retorno.kind === "error"
+                            ? "erro-cell"
+                            : undefined
                     }
                     title={retorno.title}
                   >

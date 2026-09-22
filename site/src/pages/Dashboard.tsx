@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, getToken } from "../api";
 import { useAuth } from "../auth";
 import { buildQuery, formatDataHora } from "../lib/format";
+import { statusDisplay } from "../lib/notas";
 import { canSeeFilas, isGlobalAdmin } from "../lib/roles";
 import type { NotaStatus } from "../types";
 import { ERRO_TIPO_LABELS, ERRO_TIPO_OPTIONS, NOTA_STATUS_OPTIONS } from "../types";
@@ -377,9 +378,11 @@ export default function Dashboard() {
                 value={item.qtd}
                 max={maxErro}
                 tone={
-                  item.erro_tipo === "sem_depara"
+                  item.erro_tipo === "sem_depara" || item.erro_tipo === "sem_fornecedor"
                     ? "danger"
-                    : item.erro_tipo === "sem_lote"
+                    : item.erro_tipo === "sem_lote" ||
+                        item.erro_tipo === "conta_contabil" ||
+                        item.erro_tipo === "timeout_pr"
                       ? "warn"
                       : "muted"
                 }
@@ -516,14 +519,16 @@ export default function Dashboard() {
                   </td>
                 </tr>
               ) : (
-                resumo.recentes_com_erro.map((nota) => (
+                resumo.recentes_com_erro.map((nota) => {
+                  const statusUi = statusDisplay(nota);
+                  return (
                   <tr key={nota.id}>
                     <td>{formatDataHora(nota.updated_at)}</td>
                     <td>{nota.nf}</td>
                     <td>{nota.nr_sequencia ?? "—"}</td>
                     <td>{nota.estabelecimento}</td>
                     <td>
-                      <span className={`status status-${nota.status}`}>{nota.status}</span>
+                      <span className={`status ${statusUi.className}`}>{statusUi.label}</span>
                     </td>
                     <td>
                       {nota.erro_tipo
@@ -534,7 +539,8 @@ export default function Dashboard() {
                       {nota.erro || nota.pr_mensagem || "—"}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

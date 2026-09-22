@@ -289,7 +289,7 @@ def dashboard_resumo(
     ).mappings().all()
     por_status = {str(r["status"]): int(r["qtd"]) for r in por_status_rows}
 
-    sent = int(por_status.get("sent", 0))
+    sent = int(por_status.get("sent", 0)) + int(por_status.get("sent_existente", 0))
     retry = int(por_status.get("retry_pending", 0))
     dead = int(por_status.get("dead_letter", 0))
     pending = int(por_status.get("pending", 0))
@@ -320,7 +320,7 @@ def dashboard_resumo(
             SELECT
               estabelecimento,
               COUNT(*) AS total,
-              COUNT(*) FILTER (WHERE status = 'sent') AS sent,
+              COUNT(*) FILTER (WHERE status IN ('sent', 'sent_existente')) AS sent,
               COUNT(*) FILTER (WHERE status = 'retry_pending') AS retry_pending,
               COUNT(*) FILTER (WHERE status = 'dead_letter') AS dead_letter,
               COUNT(*) FILTER (WHERE status = 'pending') AS pending
@@ -340,7 +340,7 @@ def dashboard_resumo(
             f"""
             SELECT
               DATE({date_col}) AS dia,
-              COUNT(*) FILTER (WHERE status = 'sent') AS sent,
+              COUNT(*) FILTER (WHERE status IN ('sent', 'sent_existente')) AS sent,
               COUNT(*) FILTER (
                 WHERE status IN ('retry_pending', 'dead_letter')
               ) AS erros,

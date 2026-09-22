@@ -585,7 +585,8 @@ select:focus {
 }
 
 .table-notas .erro-cell,
-.table-notas .pr-success-cell {
+.table-notas .pr-success-cell,
+.table-notas .pr-warning-cell {
   max-width: 280px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -1607,6 +1608,13 @@ select:focus {
   line-height: 1.4;
 }
 
+.pr-warning-cell {
+  max-width: 260px;
+  color: #a16207;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .erro-tipo {
   display: inline-block;
   padding: 3px 8px;
@@ -1626,9 +1634,24 @@ select:focus {
   color: #7c3aed;
 }
 
+.erro-tipo-sem_fornecedor {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.erro-tipo-conta_contabil {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
 .erro-tipo-retorno_pr {
   background: #ffedd5;
   color: #c2410c;
+}
+
+.erro-tipo-timeout_pr {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .erro-tipo-outro {
@@ -1648,6 +1671,11 @@ select:focus {
 .status-sent {
   background: var(--success-bg);
   color: var(--success);
+}
+
+.status-sent_existente {
+  background: var(--warning-bg);
+  color: var(--warning);
 }
 
 .status-retry_pending {
