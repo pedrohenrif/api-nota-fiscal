@@ -39,13 +39,32 @@ def health() -> dict:
     running = worker_thread.is_alive() if worker_thread else False
     from services.processor.config import (
         MAX_PROCESSING_RETRIES,
+        MAX_RETRY_AGE_DAYS,
         PR_HTTP_TIMEOUT_SECONDS,
         PUBLISH_DEAD_LETTER_QUEUE,
+        RABBITMQ_QUEUE_RAW_NF,
+        RABBITMQ_URL,
     )
     from services.processor.pr_circuit import pr_circuit
     from services.processor.runtime_stats import runtime_stats
 
-    stats = runtime_stats.snapshot()
+    queue_depth = 0
+    try:
+        import pika
+
+        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+        try:
+            channel = connection.channel()
+            declared = channel.queue_declare(
+                queue=RABBITMQ_QUEUE_RAW_NF, durable=True, passive=True
+            )
+            queue_depth = int(declared.method.message_count)
+        finally:
+            connection.close()
+    except Exception:
+        queue_depth = -1
+
+    stats = runtime_stats.snapshot(queue_depth=max(queue_depth, 0))
     circuit = pr_circuit.snapshot()
     return {
         "status": "ok",
@@ -53,7 +72,9 @@ def health() -> dict:
         "consumer_running": running,
         "pr_timeout_seconds": PR_HTTP_TIMEOUT_SECONDS,
         "max_retries": MAX_PROCESSING_RETRIES,
+        "max_retry_age_days": MAX_RETRY_AGE_DAYS,
         "publish_dead_letter_queue": PUBLISH_DEAD_LETTER_QUEUE,
+        "nf_raw_messages": queue_depth,
         "circuit_breaker": circuit,
         "stats": stats,
         "processor_stalled": bool(stats.get("processor_stalled")),

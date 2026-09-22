@@ -340,6 +340,7 @@ def _sleep_while_circuit_open() -> bool:
 
 
 def consume_once() -> int:
+    runtime_stats.record_heartbeat()
     processed = 0
     params = pika.URLParameters(RABBITMQ_URL)
     connection = pika.BlockingConnection(params)

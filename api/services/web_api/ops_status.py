@@ -49,7 +49,7 @@ def get_filas_status() -> dict[str, Any]:
     processor = _processor_health()
 
     raw_messages = int(raw.get("messages") or 0)
-    stalled = bool(processor.get("processor_stalled"))
+    stalled = bool(processor.get("processor_stalled")) and raw_messages > 0
     circuit_open = bool(processor.get("circuit_open"))
     consumer_running = bool(processor.get("consumer_running"))
 
@@ -61,7 +61,9 @@ def get_filas_status() -> dict[str, Any]:
     if circuit_open:
         alerts.append("Circuit breaker do PR aberto (timeouts consecutivos).")
     if stalled:
-        alerts.append("Processor sem atividade recente (possivel travamento).")
+        alerts.append(
+            f"Processor sem atividade com {raw_messages} msg na fila — possivel travamento."
+        )
     if raw_messages >= 100:
         alerts.append(f"Fila nf.raw com {raw_messages} mensagens — backlog alto.")
     elif raw_messages >= 20:
