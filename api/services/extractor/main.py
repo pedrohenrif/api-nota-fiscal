@@ -73,7 +73,7 @@ def _run_extraction_cycle(estabelecimento: str | None = None) -> dict:
         try:
             notes = extract_pending_notes(estabelecimento=target, db_client=oracle_client)
             for note in notes:
-                publish_raw_note(note.model_dump(mode="json"))
+                publish_raw_note(note.model_dump(mode="json"), estabelecimento=target)
                 published += 1
         except Exception as exc:
             logger.exception("Falha no ciclo de extracao para %s: %s", target, exc)
@@ -187,7 +187,7 @@ def emitir_nota_especifica(estabelecimento: str, nr_sequencia: str) -> dict:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
-    publish_raw_note(note.model_dump(mode="json"))
+    publish_raw_note(note.model_dump(mode="json"), estabelecimento=estabelecimento)
     return {
         "estabelecimento": estabelecimento,
         "nr_sequencia": nr_sequencia,

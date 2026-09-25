@@ -1654,6 +1654,16 @@ select:focus {
   color: #991b1b;
 }
 
+.erro-tipo-inconsistencia_tasy {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.erro-tipo-estoque_nao_atualizado {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
 .erro-tipo-outro {
   background: #e2e8f0;
   color: #475569;

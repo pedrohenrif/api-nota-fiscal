@@ -21,14 +21,37 @@ export function atualizarNotaDoTasy(
   });
 }
 
+/** Normaliza acentos/caixa para detectar "já existe" em registros antigos. */
+function textoIndicaJaExistiaNoPr(...parts: Array<string | null | undefined>): boolean {
+  const raw = parts.filter(Boolean).join(" ");
+  if (!raw.trim()) return false;
+  const normalized = raw
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+  return (
+    normalized.includes("ja existe") ||
+    normalized.includes("jaexistiano pr") ||
+    normalized.includes("ja_existia") ||
+    normalized.includes("jaexistiano")
+  );
+}
+
+export function isNotaJaExistenteNoPr(nota: NotaStatus): boolean {
+  if (nota.status === "sent_existente") return true;
+  if (nota.status !== "sent") return false;
+  return textoIndicaJaExistiaNoPr(nota.pr_mensagem, nota.erro);
+}
+
 export function formatRetornoPr(nota: NotaStatus): {
   text: string;
   kind: "success" | "warning" | "error" | "empty";
   title?: string;
 } {
-  if (nota.status === "sent_existente") {
+  if (isNotaJaExistenteNoPr(nota)) {
     const mensagem =
       nota.pr_mensagem?.trim() ||
+      nota.erro?.trim() ||
       "Já existe lançamento no PR com a mesma NF e FORNECEDOR; tratado como integrado.";
     const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
     return {
@@ -40,15 +63,6 @@ export function formatRetornoPr(nota: NotaStatus): {
 
   if (nota.status === "sent") {
     const mensagem = nota.pr_mensagem?.trim() || "Nota enviada ao PR com sucesso";
-    // Retrocompat: registros antigos gravados como sent com mensagem de já existente
-    if (/ja existe|já existe/i.test(mensagem)) {
-      const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
-      return {
-        text: `${mensagem}${idSuffix}`,
-        kind: "warning",
-        title: nota.pr_id != null ? `ID PR: ${nota.pr_id}` : mensagem,
-      };
-    }
     const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
     return {
       text: `${mensagem}${idSuffix}`,
@@ -65,11 +79,7 @@ export function formatRetornoPr(nota: NotaStatus): {
 }
 
 export function statusDisplay(nota: NotaStatus): { label: string; className: string } {
-  if (
-    nota.status === "sent" &&
-    nota.pr_mensagem &&
-    /ja existe|já existe/i.test(nota.pr_mensagem)
-  ) {
+  if (isNotaJaExistenteNoPr(nota)) {
     return { label: "Já no PR", className: "status-sent_existente" };
   }
   const labels: Record<string, string> = {

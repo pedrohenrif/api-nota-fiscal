@@ -8,6 +8,7 @@ EXTRACTION_SCHEDULER_ENABLED = (
 EXTRACTION_RUN_ON_STARTUP = os.getenv("EXTRACTION_RUN_ON_STARTUP", "false").lower() == "true"
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 RABBITMQ_QUEUE_RAW_NF = os.getenv("RABBITMQ_QUEUE_RAW_NF", "nf.raw")
+RABBITMQ_QUEUE_HRBA_RAW = os.getenv("RABBITMQ_QUEUE_HRBA_RAW", "nf.hrba.raw")
 # Scheduler nao publica se nf.raw >= este valor (evita fila explosiva quando PR esta lento).
 QUEUE_BACKPRESSURE_MAX = int(os.getenv("QUEUE_BACKPRESSURE_MAX", "200"))
 # true = so extrai notas com dt_emissao no mes corrente (competencia do mes).

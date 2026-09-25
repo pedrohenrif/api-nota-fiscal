@@ -13,11 +13,14 @@ EXTRACTOR_URL = os.getenv("EXTRACTOR_URL", "http://localhost:8001")
 
 # Processor (health / circuit breaker / stats).
 PROCESSOR_URL = os.getenv("PROCESSOR_URL", "http://localhost:8002")
+HRBA_PROCESSOR_URL = os.getenv("HRBA_PROCESSOR_URL", "http://localhost:8005")
 
 # RabbitMQ (consulta de profundidade das filas no painel).
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 RABBITMQ_QUEUE_RAW_NF = os.getenv("RABBITMQ_QUEUE_RAW_NF", "nf.raw")
 RABBITMQ_QUEUE_DEAD = os.getenv("RABBITMQ_QUEUE_DEAD", "nf.dead")
+RABBITMQ_QUEUE_HRBA_RAW = os.getenv("RABBITMQ_QUEUE_HRBA_RAW", "nf.hrba.raw")
+RABBITMQ_QUEUE_HRBA_DEAD = os.getenv("RABBITMQ_QUEUE_HRBA_DEAD", "nf.hrba.dead")
 
 # URL do report-service (disparo manual de e-mail).
 REPORT_URL = os.getenv("REPORT_URL", "http://localhost:8004")

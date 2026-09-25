@@ -176,11 +176,20 @@ def build_header_notes_sql(cd_operacao_nf_in: tuple[int, ...]) -> str:
 
 
 def build_items_by_nr_sequencia_sql(cd_operacao_nf_item_not_in: tuple[int, ...]) -> str:
-    return ITEMS_BY_NR_SEQUENCIA_SQL_TEMPLATE.format(
-        cd_operacao_nf_item_not_in_filter=_format_numeric_filter(
-            cd_operacao_nf_item_not_in
+    if cd_operacao_nf_item_not_in:
+        op_filter = (
+            "AND nf.cd_operacao_nf NOT IN ("
+            + _format_numeric_filter(cd_operacao_nf_item_not_in)
+            + ")"
         )
+    else:
+        op_filter = ""
+    # Template ainda usa placeholder; substituimos o trecho completo.
+    base = ITEMS_BY_NR_SEQUENCIA_SQL_TEMPLATE.replace(
+        "AND nf.cd_operacao_nf NOT IN ({cd_operacao_nf_item_not_in_filter})",
+        op_filter,
     )
+    return base
 
 
 MARK_NOTE_INTEGRATED_SQL = """

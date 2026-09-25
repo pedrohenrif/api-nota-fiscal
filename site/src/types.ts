@@ -198,6 +198,8 @@ export const ERRO_TIPO_OPTIONS = [
   { value: "conta_contabil", label: "Conta contábil" },
   { value: "retorno_pr", label: "Retorno PR" },
   { value: "timeout_pr", label: "Timeout PR" },
+  { value: "inconsistencia_tasy", label: "Inconsistência Tasy" },
+  { value: "estoque_nao_atualizado", label: "Estoque não atualizado" },
   { value: "outro", label: "Outro" },
 ] as const;
 
@@ -208,6 +210,8 @@ export const ERRO_TIPO_LABELS: Record<string, string> = {
   conta_contabil: "Conta contábil",
   retorno_pr: "Retorno PR",
   timeout_pr: "Timeout PR",
+  inconsistencia_tasy: "Inconsistência Tasy",
+  estoque_nao_atualizado: "Estoque não atualizado",
   outro: "Outro",
 };
 

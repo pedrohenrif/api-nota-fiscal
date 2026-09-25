@@ -7,6 +7,8 @@ ERRO_TIPOS = (
     "conta_contabil",
     "retorno_pr",
     "timeout_pr",
+    "inconsistencia_tasy",
+    "estoque_nao_atualizado",
     "outro",
 )
 

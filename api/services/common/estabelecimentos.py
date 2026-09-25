@@ -1,1 +1,1 @@
-ESTABELECIMENTOS = ["Castelo", "HRAS", "HRT", "Ponta Pora"]
+ESTABELECIMENTOS = ["Castelo", "HRAS", "HRT", "Ponta Pora", "HRBA"]

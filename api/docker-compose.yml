@@ -94,6 +94,7 @@ services:
       POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
       EXTRACTOR_URL: http://extractor-service:8001
       PROCESSOR_URL: http://processor-service:8002
+      HRBA_PROCESSOR_URL: http://hrba-processor-service:8005
       REPORT_URL: http://report-service:8004
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     ports:
@@ -118,6 +119,31 @@ services:
     ports:
       - "8004:8004"
     command: uvicorn services.report.main:app --host 0.0.0.0 --port 8004
+    volumes:
+      - ./:/app
+      - ${ORACLE_HOST_CLIENT_DIR:-/opt/oracle/instantclient_21_19}:${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}:ro
+
+  hrba-processor-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      extractor-service:
+        condition: service_started
+    environment:
+      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
+      LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
+    ports:
+      - "8005:8005"
+    command: uvicorn services.hrba_processor.main:app --host 0.0.0.0 --port 8005
     volumes:
       - ./:/app
       - ${ORACLE_HOST_CLIENT_DIR:-/opt/oracle/instantclient_21_19}:${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}:ro

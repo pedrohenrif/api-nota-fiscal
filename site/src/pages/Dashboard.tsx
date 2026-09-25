@@ -44,6 +44,8 @@ interface FilasStatus {
   alerts: string[];
   nf_raw: { name: string; messages: number; consumers: number };
   nf_dead: { name: string; messages: number; consumers: number };
+  nf_hrba_raw?: { name: string; messages: number; consumers: number };
+  nf_hrba_dead?: { name: string; messages: number; consumers: number };
   processor: {
     ok?: boolean;
     error?: string;
@@ -61,6 +63,12 @@ interface FilasStatus {
       last_error?: string | null;
       last_result?: string | null;
     };
+  };
+  hrba_processor?: {
+    ok?: boolean;
+    error?: string;
+    consumer_running?: boolean;
+    oracle_hrba_env?: string;
   };
 }
 
@@ -262,20 +270,32 @@ export default function Dashboard() {
           <h2 style={{ marginTop: 0 }}>Filas e processor</h2>
           <div className="dash-kpi-grid">
             <div className={`dash-kpi ${filas.nf_raw.messages >= 20 ? "dash-kpi--warn" : ""}`}>
-              <span>Na fila (nf.raw)</span>
+              <span>Na fila (nf.raw / PR)</span>
               <strong>{filas.nf_raw.messages}</strong>
             </div>
             <div className={`dash-kpi ${filas.nf_dead.messages > 0 ? "dash-kpi--danger" : ""}`}>
               <span>Dead letter (nf.dead)</span>
               <strong>{filas.nf_dead.messages}</strong>
             </div>
+            <div className={`dash-kpi ${(filas.nf_hrba_raw?.messages ?? 0) >= 20 ? "dash-kpi--warn" : ""}`}>
+              <span>Fila HRBA (nf.hrba.raw)</span>
+              <strong>{filas.nf_hrba_raw?.messages ?? "—"}</strong>
+            </div>
             <div
               className={`dash-kpi ${
                 filas.processor.consumer_running ? "dash-kpi--ok" : "dash-kpi--danger"
               }`}
             >
-              <span>Consumer</span>
+              <span>Consumer PR</span>
               <strong>{filas.processor.consumer_running ? "Rodando" : "Parado"}</strong>
+            </div>
+            <div
+              className={`dash-kpi ${
+                filas.hrba_processor?.consumer_running ? "dash-kpi--ok" : "dash-kpi--danger"
+              }`}
+            >
+              <span>Consumer HRBA</span>
+              <strong>{filas.hrba_processor?.consumer_running ? "Rodando" : "Parado"}</strong>
             </div>
             <div
               className={`dash-kpi ${
