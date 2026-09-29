@@ -10,6 +10,10 @@ from services.hrba_processor.config import (
     RABBITMQ_URL,
     USE_MOCK_ORACLE,
 )
+from services.common.hrba_oracle import (
+    ORACLE_HRBA_DSN_HOMOLOG,
+    ORACLE_HRBA_SEDE_DSN_HOMOLOG,
+)
 from services.hrba_processor.consumer import consume_forever, consume_once
 from services.processor.db import Base, engine
 from services.processor.migrations import run_migrations
@@ -67,6 +71,13 @@ def health() -> dict:
         "destino": "tasy_hrba",
         "consumer_running": running,
         "oracle_hrba_env": ORACLE_HRBA_ENV,
+        "sede_dsn_configured": bool(ORACLE_HRBA_SEDE_DSN_HOMOLOG)
+        if ORACLE_HRBA_ENV != "production"
+        else True,
+        "hrba_dsn_configured": bool(ORACLE_HRBA_DSN_HOMOLOG)
+        if ORACLE_HRBA_ENV != "production"
+        else True,
+        "uses_pr_oracle_dsn": False,
         "use_mock_oracle": USE_MOCK_ORACLE,
         "max_retries": MAX_PROCESSING_RETRIES,
         "max_retry_age_days": MAX_RETRY_AGE_DAYS,

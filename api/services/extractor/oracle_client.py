@@ -70,5 +70,17 @@ class OracleClient:
         return int(rowcount or 0)
 
 
-def build_oracle_client() -> OracleClient:
+def build_oracle_client(dsn: str | None = None) -> OracleClient:
+    return OracleClient(dsn=dsn or ORACLE_DSN)
+
+
+def build_oracle_client_for(estabelecimento: str | None = None) -> OracleClient:
+    """
+    PR (Castelo/HRAS/...): ORACLE_DSN.
+    HRBA: ORACLE_HRBA_SEDE_DSN_* (nunca o DSN do PR).
+    """
+    if estabelecimento == "HRBA":
+        from services.common.hrba_oracle import get_hrba_sede_dsn
+
+        return OracleClient(dsn=get_hrba_sede_dsn())
     return OracleClient(dsn=ORACLE_DSN)

@@ -6,9 +6,9 @@ from typing import Any
 
 from services.hrba_processor.config import (
     ESTABELECIMENTO_NOME,
-    ORACLE_SEDE_DSN,
     USE_MOCK_ORACLE,
     get_hrba_dsn,
+    get_sede_dsn,
 )
 from services.hrba_processor.depara import validar_nota
 from services.hrba_processor.integracao import integrar_nota
@@ -86,10 +86,8 @@ def process_hrba_payload(payload: dict[str, Any]) -> str:
             )
             return "sent"
 
-        if not ORACLE_SEDE_DSN:
-            raise ValueError("ORACLE_DSN (SEDE) nao configurado")
-
-        sede = OracleSession(ORACLE_SEDE_DSN, nome="SEDE")
+        # DSNs exclusivos do canal HRBA (homolog/prod) — nao usa ORACLE_DSN do PR.
+        sede = OracleSession(get_sede_dsn(), nome="SEDE-HRBA")
         hrba = OracleSession(get_hrba_dsn(), nome="HRBA")
         sede.connect()
         hrba.connect()

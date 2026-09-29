@@ -16,12 +16,6 @@ PUBLISH_DEAD_LETTER_QUEUE = os.getenv("PUBLISH_DEAD_LETTER_QUEUE", "false").lowe
 
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
 
-# SEDE = mesmo ORACLE_DSN do extrator (fonte das notas).
-ORACLE_SEDE_DSN = os.getenv("ORACLE_DSN", "")
-# HRBA = destino Tasy (homolog por padrao).
-ORACLE_HRBA_ENV = os.getenv("ORACLE_HRBA_ENV", "homolog").lower()
-ORACLE_HRBA_DSN_HOMOLOG = os.getenv("ORACLE_HRBA_DSN_HOMOLOG", "")
-ORACLE_HRBA_DSN_PRODUCTION = os.getenv("ORACLE_HRBA_DSN_PRODUCTION", "")
 USE_MOCK_ORACLE = os.getenv("USE_MOCK_ORACLE", "true").lower() == "true"
 
 CD_ESTABELECIMENTO_HRBA = int(os.getenv("HRBA_CD_ESTABELECIMENTO", "1"))
@@ -34,14 +28,12 @@ CD_MATERIAL_ESTOQUE = int(os.getenv("HRBA_CD_MATERIAL_ESTOQUE", "4"))
 
 ESTABELECIMENTO_NOME = "HRBA"
 
+# Reexporta helpers — canal HRBA NUNCA usa ORACLE_DSN do PR.
+from services.common.hrba_oracle import (  # noqa: E402
+    ORACLE_HRBA_ENV,
+    get_hrba_destino_dsn,
+    get_hrba_sede_dsn,
+)
 
-def get_hrba_dsn() -> str:
-    if ORACLE_HRBA_ENV == "production":
-        dsn = ORACLE_HRBA_DSN_PRODUCTION.strip()
-        if not dsn:
-            raise ValueError("ORACLE_HRBA_DSN_PRODUCTION nao configurado")
-        return dsn
-    dsn = ORACLE_HRBA_DSN_HOMOLOG.strip()
-    if not dsn:
-        raise ValueError("ORACLE_HRBA_DSN_HOMOLOG nao configurado")
-    return dsn
+get_hrba_dsn = get_hrba_destino_dsn
+get_sede_dsn = get_hrba_sede_dsn

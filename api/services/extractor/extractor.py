@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 from services.extractor.extraction_profiles import PROFILES
 from services.extractor.note_validation import validate_note_row
-from services.extractor.oracle_client import build_oracle_client
+from services.extractor.oracle_client import build_oracle_client, build_oracle_client_for
 from services.extractor.schemas import NotaFiscalPRPayload
 from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
 from services.extractor.sql_templates import (
@@ -193,7 +193,7 @@ def extract_pending_notes(
         raise ValueError(f"Estabelecimento nao mapeado: {estabelecimento}")
 
     profile = PROFILES[estabelecimento]
-    oracle = db_client or build_oracle_client()
+    oracle = db_client or build_oracle_client_for(estabelecimento)
     header_sql = build_header_notes_sql(profile.cd_operacao_nf_in)
 
     note_rows = oracle.fetch_all(
@@ -246,7 +246,7 @@ def consult_note_by_nr_sequencia(
         raise ValueError(f"Estabelecimento nao mapeado: {estabelecimento}")
 
     profile = PROFILES[estabelecimento]
-    oracle = db_client or build_oracle_client()
+    oracle = db_client or build_oracle_client_for(estabelecimento)
     note_row = _fetch_note_header_by_nr_sequencia(oracle, nr_sequencia)
 
     if note_row is None:

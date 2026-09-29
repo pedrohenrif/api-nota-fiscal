@@ -5,15 +5,19 @@ Fila: `nf.hrba.raw` (publicada pelo extractor quando estabelecimento=HRBA).
 
 ## Fluxo
 
-1. Extractor (perfil HRBA, cd_estabelecimento=10) publica em `nf.hrba.raw`
-2. Este servico recarrega a nota completa na SEDE (`ORACLE_DSN`)
-3. Valida CNPJ + de-para material no HRBA
-4. INSERT NF/itens/lotes/venc + procedures Tasy no HRBA
-5. Se `dt_atualizacao_estoque` no HRBA preenchida -> marca `dt_integracao` na SEDE
-6. Status no Postgres (`nota_processamento`, estabelecimento=HRBA) para o painel
+1. Extractor (perfil HRBA) le a **SEDE de homolog/prod do canal HRBA**
+   (`ORACLE_HRBA_SEDE_DSN_*`) — **nao** usa `ORACLE_DSN` do PR
+2. Publica em `nf.hrba.raw`
+3. Este servico valida/insere no **HRBA** (`ORACLE_HRBA_DSN_*`)
+4. Se estoque OK no HRBA -> marca `dt_integracao` na SEDE do canal HRBA
+5. Status no Postgres (`estabelecimento=HRBA`) para o painel
 
-## Env
+## Env (homolog completo)
 
-Ver `api/.env.example` (`ORACLE_HRBA_ENV`, `ORACLE_HRBA_DSN_HOMOLOG`, ...).
+```env
+ORACLE_HRBA_ENV=homolog
+ORACLE_HRBA_SEDE_DSN_HOMOLOG=...   # SEDE teste (fonte)
+ORACLE_HRBA_DSN_HOMOLOG=...        # HRBA teste (destino)
+```
 
-Homolog: `ORACLE_HRBA_ENV=homolog` + DSN de teste.
+`ORACLE_DSN` continua so para Castelo/HRAS/HRT/Ponta Pora (PR).
