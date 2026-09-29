@@ -43,7 +43,7 @@ services:
         condition: service_healthy
     environment:
       # Dentro do Docker, hosts internos substituem localhost do .env
-      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      POSTGRES_URL: postgresql+psycopg2://tasy:tasy@db:5432/tasy_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
       LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
@@ -68,7 +68,7 @@ services:
       extractor-service:
         condition: service_started
     environment:
-      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      POSTGRES_URL: postgresql+psycopg2://tasy:tasy@db:5432/tasy_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       EXTRACTOR_URL: http://extractor-service:8001
     ports:
@@ -91,7 +91,7 @@ services:
       report-service:
         condition: service_started
     environment:
-      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      POSTGRES_URL: postgresql+psycopg2://tasy:tasy@db:5432/tasy_db
       EXTRACTOR_URL: http://extractor-service:8001
       PROCESSOR_URL: http://processor-service:8002
       HRBA_PROCESSOR_URL: http://hrba-processor-service:8005
@@ -113,7 +113,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      POSTGRES_URL: postgresql+psycopg2://tasy:tasy@db:5432/tasy_db
       ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
       LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
     ports:
@@ -137,7 +137,7 @@ services:
       extractor-service:
         condition: service_started
     environment:
-      POSTGRES_URL: postgresql://tasy:tasy@db:5432/tasy_db
+      POSTGRES_URL: postgresql+psycopg2://tasy:tasy@db:5432/tasy_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}
       LD_LIBRARY_PATH: ${ORACLE_CLIENT_LIB_DIR:-/opt/oracle/instantclient_21_19}

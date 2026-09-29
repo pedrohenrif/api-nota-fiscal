@@ -7,8 +7,11 @@ from sqlalchemy import Boolean, Column, DateTime, String, create_engine, func, t
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from services.common.estabelecimentos import ESTABELECIMENTOS
+from services.common.postgres_url import normalize_postgres_url
 
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+POSTGRES_URL = normalize_postgres_url(
+    os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+)
 
 Base = declarative_base()
 engine = create_engine(POSTGRES_URL, future=True)

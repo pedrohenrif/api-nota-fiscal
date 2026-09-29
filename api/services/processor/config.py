@@ -1,5 +1,7 @@
 import os
 
+from services.common.postgres_url import normalize_postgres_url
+
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 RABBITMQ_QUEUE_RAW_NF = os.getenv("RABBITMQ_QUEUE_RAW_NF", "nf.raw")
 RABBITMQ_QUEUE_DEAD = os.getenv("RABBITMQ_QUEUE_DEAD", "nf.dead")
@@ -22,7 +24,9 @@ PR_CIRCUIT_OPEN_SECONDS = int(os.getenv("PR_CIRCUIT_OPEN_SECONDS", "120"))
 PR_CIRCUIT_RETRY_DELAY_SECONDS = int(os.getenv("PR_CIRCUIT_RETRY_DELAY_SECONDS", "60"))
 # true = loga request/response do POST /NF no processor (desligar apos debug).
 PR_DEBUG_HTTP = os.getenv("PR_DEBUG_HTTP", "false").lower() in ("1", "true", "yes")
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+POSTGRES_URL = normalize_postgres_url(
+    os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+)
 
 # homolog | production
 PR_ENV = os.getenv("PR_ENV", "homolog").lower()

@@ -16,6 +16,10 @@ PUBLISH_DEAD_LETTER_QUEUE = os.getenv("PUBLISH_DEAD_LETTER_QUEUE", "false").lowe
 
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
 
+from services.common.postgres_url import normalize_postgres_url
+
+POSTGRES_URL = normalize_postgres_url(POSTGRES_URL)
+
 USE_MOCK_ORACLE = os.getenv("USE_MOCK_ORACLE", "true").lower() == "true"
 
 CD_ESTABELECIMENTO_HRBA = int(os.getenv("HRBA_CD_ESTABELECIMENTO", "1"))

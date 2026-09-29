@@ -1,8 +1,11 @@
 import os
 
 from services.common.estabelecimentos import ESTABELECIMENTOS
+from services.common.postgres_url import normalize_postgres_url
 
-POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+POSTGRES_URL = normalize_postgres_url(
+    os.getenv("POSTGRES_URL", "postgresql://tasy:tasy@localhost:5432/tasy_db")
+)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
