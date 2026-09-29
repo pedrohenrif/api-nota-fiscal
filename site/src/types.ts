@@ -146,6 +146,7 @@ export interface ProdutoNF {
   qtdEntrada: number;
   loteNF: LoteNF[];
   depara?: DeparaStatus | null;
+  dsReduzida?: string | null;
 }
 
 export interface NotaPreview {

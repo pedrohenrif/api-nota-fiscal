@@ -121,6 +121,7 @@ class ProdutoNFOut(BaseModel):
     qtdEntrada: float
     loteNF: list[LoteNFOut] = Field(default_factory=list)
     depara: Optional[DeparaStatusOut] = None
+    dsReduzida: Optional[str] = None
 
 
 class NotaPreviewOut(BaseModel):

@@ -49,6 +49,15 @@ function itemComFalhaDepara(produto: ProdutoNF): boolean {
   return produto.depara != null && produto.depara.status !== "ok";
 }
 
+function descricaoMaterial(produto: ProdutoNF): string {
+  return (produto.dsReduzida || "").trim();
+}
+
+function labelMaterialPendente(produto: ProdutoNF): string {
+  const desc = descricaoMaterial(produto);
+  return desc ? `${produto.codProd} — ${desc}` : produto.codProd;
+}
+
 export default function NotaDetalheModal({
   nota,
   onClose,
@@ -208,7 +217,7 @@ export default function NotaDetalheModal({
               </strong>
               <p>
                 Materiais pendentes:{" "}
-                {itensSemDepara.map((item) => item.codProd).join(", ") || "—"}
+                {itensSemDepara.map((item) => labelMaterialPendente(item)).join("; ") || "—"}
               </p>
             </div>
           ) : detalhe.depara_resumo && detalhe.depara_resumo.total > 0 ? (
@@ -284,6 +293,7 @@ export default function NotaDetalheModal({
                     <thead>
                       <tr>
                         <th>Cód. material (Tasy)</th>
+                        <th>Descrição</th>
                         <th>De-para PR</th>
                         <th>Qtd entrada</th>
                         <th>Valor unit.</th>
@@ -294,18 +304,23 @@ export default function NotaDetalheModal({
                     <tbody>
                       {preview.produtos.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="empty">
+                          <td colSpan={7} className="empty">
                             Nenhum item na nota.
                           </td>
                         </tr>
                       ) : (
-                        preview.produtos.map((produto, index) => (
+                        preview.produtos.map((produto, index) => {
+                          const desc = descricaoMaterial(produto);
+                          return (
                           <tr
                             key={`${produto.codProd}-${index}`}
                             className={itemComFalhaDepara(produto) ? "detalhe-row-erro" : undefined}
                           >
                             <td>
                               <strong>{produto.codProd}</strong>
+                            </td>
+                            <td className="cell-material-desc" title={desc || undefined}>
+                              {desc || "—"}
                             </td>
                             <td>
                               <DeparaBadge depara={produto.depara} />
@@ -334,7 +349,8 @@ export default function NotaDetalheModal({
                               )}
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

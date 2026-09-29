@@ -17,6 +17,8 @@ class ProdutoNF(BaseModel):
     valor: float
     qtdEntrada: float
     loteNF: List[LoteNF] = Field(default_factory=list)
+    # Descricao Tasy (ds_reduzida) — so painel; removida no POST ao PR.
+    dsReduzida: Optional[str] = None
 
 
 class FornecedorNF(BaseModel):

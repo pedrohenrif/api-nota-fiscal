@@ -162,6 +162,7 @@ def _build_note_payload(
                 "valor": valor,
                 "qtdEntrada": qtd_entrada,
                 "loteNF": lots_payload,
+                "dsReduzida": _to_str(_g(item, "DS_REDUZIDA")) or None,
             }
         )
 

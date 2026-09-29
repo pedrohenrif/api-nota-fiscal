@@ -990,6 +990,20 @@ select:focus {
   font-size: 11px;
 }
 
+.table-nested .cell-material-desc {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.table-nested .detalhe-row-erro .cell-material-desc {
+  color: var(--danger);
+  font-weight: 500;
+}
+
 .detalhe-loading {
   margin: 0;
   color: var(--text-muted);

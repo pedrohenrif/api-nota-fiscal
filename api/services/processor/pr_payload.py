@@ -102,6 +102,8 @@ def normalize_nota_for_pr(nota: dict[str, Any]) -> dict[str, Any]:
         produto.pop("codProdTasy", None)
         produto.pop("codProdPR", None)
         produto.pop("controleDeLote", None)
+        produto.pop("dsReduzida", None)
+        produto.pop("ds_reduzida", None)
         produto["codProd"] = str(produto.get("codProd") or "").strip()
 
         lots_out: list[dict[str, Any]] = []
