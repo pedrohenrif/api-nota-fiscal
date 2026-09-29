@@ -393,6 +393,11 @@ export default function NotaDetalheModal({
                 ? "Integrada no PR. Não foi possível carregar os itens no Tasy neste momento."
                 : detalhe.consulta_mensagem ??
                   "Não foi possível carregar os itens desta nota no Tasy."}
+              {detalhe.consulta_mensagem ? (
+                <p className="detalhe-fonte" style={{ marginTop: 8 }}>
+                  Detalhe: {detalhe.consulta_mensagem}
+                </p>
+              ) : null}
             </div>
           )}
         </>
