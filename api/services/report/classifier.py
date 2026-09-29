@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import text
 
 from services.common.estab_config import SessionLocal
+from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
 from services.extractor.extraction_profiles import PROFILES
 from services.extractor.extractor import (
     MockOracleClient,
