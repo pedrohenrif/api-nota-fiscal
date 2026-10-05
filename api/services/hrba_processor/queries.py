@@ -188,7 +188,7 @@ INSERT INTO NOTA_FISCAL_ITEM (
     :CD_SEQUENCIA_PARAMETRO, :CD_CATEGORIA_IVA, :CD_PROCEDIMENTO_LOC, :DT_ATUALIZACAO_ESTOQUE,
     null, null, null, null, null, null, :QT_ITEM_ESTOQUE, :CENTRO_CUSTO, :CD_MATERIAL_ESTOQUE,
     null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null,
-    null, null, null, null, null, null, null, null, null, null, null, null, 0
+    null, null, null, null, null, null, null, null, null, null, null, null, null, 0
 )
 """
 
