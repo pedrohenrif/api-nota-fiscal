@@ -113,6 +113,14 @@ def _inserir_itens(
             continue
         centro = definir_centro_custo(cd_estoque_hrba, consignado)
         cd_conta_item = item.get("CD_CONTA")
+        logger.info(
+            "[INSERT_NFI] item=%s material_hrba=%s conta_contabil=%s cd_conta=%s estoque=%s",
+            item.get("NR_ITEM_NF"),
+            cd_material_hrba,
+            conta,
+            cd_conta_item,
+            cd_estoque_hrba,
+        )
 
         try:
             hrba.execute(
@@ -166,6 +174,22 @@ def _inserir_itens(
                 item.get("NR_ITEM_NF"),
                 _ident(nota, nr_seq_hrba),
             )
+    if ok:
+        try:
+            rows = hrba.fetch_all(
+                queries.SELECT_ITEM_CONTA_POS_INSERT, {"NR_SEQUENCIA": nr_seq_hrba}
+            )
+            for row in rows:
+                logger.info(
+                    "[INSERT_NFI] gravado seq_hrba=%s item=%s mat=%s conta_contabil=%s cd_conta=%s",
+                    nr_seq_hrba,
+                    row.get("NR_ITEM_NF"),
+                    row.get("CD_MATERIAL"),
+                    row.get("CD_CONTA_CONTABIL"),
+                    row.get("CD_CONTA"),
+                )
+        except Exception:
+            logger.exception("[INSERT_NFI] falha ao auditar itens gravados")
     return ok, motivos
 
 
@@ -443,6 +467,12 @@ def integrar_nota(
     msg = "; ".join(str(x) for x in inconsistencias if x) or (
         "Procedures executadas, mas dt_atualizacao_estoque no HRBA ficou vazia"
     )
+    if "conta cont" in msg.lower():
+        msg += (
+            " | Dica: o Tasy valida a conta no CADASTRO do material HRBA "
+            "(obter_conta_contabil_material), nao so o campo do item. "
+            "Confira no HRBA: SELECT obter_conta_contabil_material(1, CD_MATERIAL) FROM dual"
+        )
     return {
         "ok": False,
         "nr_seq_hrba": nr_seq_hrba,

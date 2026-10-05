@@ -261,6 +261,13 @@ SELECT obter_conta_contabil_material(:CD_ESTABELECIMENTO, :CD_MATERIAL) AS CD_CO
 FROM dual
 """
 
+SELECT_CONTA_CONTABIL_COM_ESTOQUE = """
+SELECT obter_conta_contabil_material(
+    :CD_ESTABELECIMENTO, :CD_MATERIAL, :CD_LOCAL_ESTOQUE
+) AS CD_CONTA_CONTABIL
+FROM dual
+"""
+
 SELECT_CONTA_CONTABIL_MATERIAL_ALT = """
 SELECT NVL(
     obter_conta_contabil_material(:CD_ESTABELECIMENTO, cd_material),
@@ -268,6 +275,13 @@ SELECT NVL(
 ) AS CD_CONTA_CONTABIL
 FROM tasy.material
 WHERE cd_material = :CD_MATERIAL
+"""
+
+SELECT_ITEM_CONTA_POS_INSERT = """
+SELECT nr_item_nf, cd_material, cd_conta_contabil, cd_conta, cd_local_estoque
+FROM tasy.nota_fiscal_item
+WHERE nr_sequencia = :NR_SEQUENCIA
+ORDER BY nr_item_nf
 """
 
 SELECT_CGC_EMITENTE = """

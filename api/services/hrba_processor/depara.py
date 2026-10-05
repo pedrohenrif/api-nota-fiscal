@@ -59,20 +59,36 @@ def buscar_unidades_medidas(hrba: OracleSession, cd_material: Any) -> tuple[Any,
     return row.get("CD_UNIDADE_MEDIDA_COMPRA"), row.get("CD_UNIDADE_MEDIDA_ESTOQUE")
 
 
-def buscar_conta_contabil(hrba: OracleSession, cd_material_hrba: Any) -> Any:
+def buscar_conta_contabil(
+    hrba: OracleSession,
+    cd_material_hrba: Any,
+    cd_local_estoque: Any = None,
+) -> Any:
     """Busca conta contabil do material no HRBA (funcao Tasy + fallback coluna material)."""
-    params = {
+    params: dict[str, Any] = {
         "CD_ESTABELECIMENTO": CD_ESTABELECIMENTO_HRBA,
         "CD_MATERIAL": cd_material_hrba,
     }
-    for sql in (queries.SELECT_CONTA_CONTABIL, queries.SELECT_CONTA_CONTABIL_MATERIAL_ALT):
+    queries_try: list[tuple[str, dict[str, Any]]] = []
+    if cd_local_estoque is not None:
+        queries_try.append(
+            (
+                queries.SELECT_CONTA_CONTABIL_COM_ESTOQUE,
+                {**params, "CD_LOCAL_ESTOQUE": cd_local_estoque},
+            )
+        )
+    queries_try.append((queries.SELECT_CONTA_CONTABIL, params))
+    queries_try.append((queries.SELECT_CONTA_CONTABIL_MATERIAL_ALT, params))
+
+    for sql, sql_params in queries_try:
         try:
-            rows = hrba.fetch_all(sql, params)
+            rows = hrba.fetch_all(sql, sql_params)
         except Exception:
-            logger.exception(
-                "Falha ao consultar conta contabil | material=%s sql=%s",
+            logger.warning(
+                "Falha ao consultar conta contabil | material=%s local=%s",
                 cd_material_hrba,
-                sql.split("\n", 1)[0],
+                cd_local_estoque,
+                exc_info=True,
             )
             continue
         if not rows:
@@ -88,11 +104,12 @@ def resolver_conta_contabil(
 ) -> Any:
     """
     Conta contabil para o item HRBA:
-    1) funcao/cadastro no HRBA
+    1) funcao/cadastro no HRBA (com e sem local estoque)
     2) CD_CONTA_CONTABIL ja existente no item SEDE
     3) CD_CONTA do item SEDE (em algumas bases a UI mostra esse codigo)
     """
-    conta = buscar_conta_contabil(hrba, cd_material_hrba)
+    local_hrba = depara_estoque(item.get("CD_LOCAL_ESTOQUE"))
+    conta = buscar_conta_contabil(hrba, cd_material_hrba, local_hrba)
     if conta is not None:
         return conta
     for key in ("CD_CONTA_CONTABIL", "CD_CONTA"):

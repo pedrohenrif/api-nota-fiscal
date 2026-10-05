@@ -70,13 +70,17 @@ class OracleSession:
             cursor.execute(sql, params or {})
             return int(cursor.rowcount or 0)
 
-    def callproc_with_outs(self, name: str, args: list[Any]) -> list[Any]:
-        """callproc preservando OUT binds (vars do cursor)."""
+    def callproc(self, name: str, args: list[Any]) -> list[Any]:
+        """Chama procedure Oracle (IN/OUT via lista mutavel)."""
         if self._conn is None:
             raise RuntimeError(f"[{self.nome}] conexao nao estabelecida")
         with self._conn.cursor() as cursor:
             cursor.callproc(name, args)
             return args
+
+    def callproc_with_outs(self, name: str, args: list[Any]) -> list[Any]:
+        """callproc preservando OUT binds (vars do cursor)."""
+        return self.callproc(name, args)
 
     @property
     def connection(self):
