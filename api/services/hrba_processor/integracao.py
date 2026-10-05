@@ -77,21 +77,26 @@ def _inserir_nota_fiscal(hrba: OracleSession, nota: dict[str, Any]) -> bool:
         return False
 
 
-def _inserir_itens(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba: Any) -> bool:
+def _inserir_itens(
+    hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba: Any
+) -> tuple[bool, list[str]]:
     ok = True
+    motivos: list[str] = []
     consignado = str(nota.get("CONSIGNADO") or "N")
     for item in nota.get("NOTA_FISCAL_ITEM") or []:
         material_sede = str(item.get("CD_MATERIAL") or "")
         cd_material_hrba = depara_material(hrba, material_sede)
-        cd_estoque_hrba = depara_estoque(item.get("CD_LOCAL_ESTOQUE"))
+        local_sede = item.get("CD_LOCAL_ESTOQUE")
+        cd_estoque_hrba = depara_estoque(local_sede)
         if cd_material_hrba is None or cd_estoque_hrba is None:
             ok = False
-            logger.error(
-                "[INSERT_NFI] de-para incompleto | %s | material=%s estoque=%s",
-                _ident(nota, nr_seq_hrba),
-                material_sede,
-                item.get("CD_LOCAL_ESTOQUE"),
+            motivo = (
+                f"item {item.get('NR_ITEM_NF')}: de-para incompleto "
+                f"(material_sede={material_sede} -> {cd_material_hrba}, "
+                f"estoque_sede={local_sede} -> {cd_estoque_hrba})"
             )
+            motivos.append(motivo)
+            logger.error("[INSERT_NFI] %s | %s", motivo, _ident(nota, nr_seq_hrba))
             continue
 
         un_compra, un_estoque = buscar_unidades_medidas(hrba, cd_material_hrba)
@@ -140,14 +145,16 @@ def _inserir_itens(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba: Any) 
                     "CD_MATERIAL_ESTOQUE": CD_MATERIAL_ESTOQUE,
                 },
             )
-        except Exception:
+        except Exception as exc:
             ok = False
+            motivo = f"item {item.get('NR_ITEM_NF')}: {exc}"
+            motivos.append(motivo)
             logger.exception(
                 "[INSERT_NFI] falha item=%s | %s",
                 item.get("NR_ITEM_NF"),
                 _ident(nota, nr_seq_hrba),
             )
-    return ok
+    return ok, motivos
 
 
 def _inserir_lotes(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba: Any) -> bool:
@@ -387,13 +394,15 @@ def integrar_nota(
                 "mensagem": "INSERT_NF sem nr_sequencia gerado no HRBA",
                 "erro_tipo": "outro",
             }
-        if not _inserir_itens(hrba, nota, nr_seq_hrba):
+        itens_ok, motivos_itens = _inserir_itens(hrba, nota, nr_seq_hrba)
+        if not itens_ok:
             hrba.rollback()
+            detalhe = "; ".join(motivos_itens[:5]) if motivos_itens else "motivo desconhecido"
             return {
                 "ok": False,
                 "nr_seq_hrba": nr_seq_hrba,
                 "ja_existia": False,
-                "mensagem": "Falha ao inserir itens no HRBA",
+                "mensagem": f"Falha ao inserir itens no HRBA: {detalhe}",
                 "erro_tipo": "sem_depara",
             }
         _inserir_lotes(hrba, nota, nr_seq_hrba)

@@ -98,11 +98,17 @@ def process_hrba_payload(payload: dict[str, Any]) -> str:
 
         ok_val, erro_tipo = validar_nota(hrba, nota)
         if not ok_val:
-            msg = (
-                "CNPJ emitente nao cadastrado no HRBA"
-                if erro_tipo == "sem_fornecedor"
-                else "Itens sem de-para de material no HRBA (cd_sistema_ant)"
-            )
+            if erro_tipo == "sem_fornecedor":
+                msg = "CNPJ emitente nao cadastrado no HRBA"
+            elif erro_tipo == "sem_depara_estoque":
+                locais = ", ".join(nota.get("ESTOQUES_SEM_DEPARA") or []) or "?"
+                msg = (
+                    "Local de estoque SEDE sem de-para para HRBA "
+                    f"(cd_local_estoque: {locais}). "
+                    "Inclua o mapeamento em DEPARA_ESTOQUE."
+                )
+            else:
+                msg = "Itens sem de-para de material no HRBA (cd_sistema_ant)"
             upsert_processing_status(
                 db,
                 estabelecimento=ESTABELECIMENTO_NOME,

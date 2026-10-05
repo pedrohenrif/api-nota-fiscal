@@ -136,15 +136,36 @@ def _handle_message(payload: dict) -> None:
         if retries >= MAX_PROCESSING_RETRIES or _retry_age_exceeded(payload):
             db = SessionLocal()
             try:
+                nr_seq = str(payload.get("nrSequencia") or "") or None
+                nf = str(payload.get("nf") or payload.get("nrSequencia") or "?")
+                # Preserva o erro real da ultima tentativa (nao mascara como estoque).
+                from services.processor.models import NotaProcessamento
+
+                record = None
+                q = db.query(NotaProcessamento).filter(
+                    NotaProcessamento.estabelecimento == ESTABELECIMENTO_NOME
+                )
+                if nr_seq:
+                    record = q.filter(NotaProcessamento.nr_sequencia == nr_seq).first()
+                if record is None:
+                    record = q.filter(NotaProcessamento.nf == nf).first()
+
+                erro = (record.erro if record and record.erro else None) or (
+                    "Esgotadas tentativas de integracao HRBA"
+                )
+                erro_tipo = (
+                    record.erro_tipo if record and record.erro_tipo else None
+                ) or "outro"
                 upsert_processing_status(
                     db,
                     estabelecimento=ESTABELECIMENTO_NOME,
-                    nf=str(payload.get("nf") or "?"),
+                    nf=nf,
                     status="dead_letter",
                     tentativas=retries,
-                    erro="Esgotadas tentativas de integracao HRBA",
-                    erro_tipo="estoque_nao_atualizado",
-                    nr_sequencia=str(payload.get("nrSequencia") or "") or None,
+                    erro=erro,
+                    erro_tipo=erro_tipo,
+                    nr_sequencia=nr_seq,
+                    pr_mensagem=record.pr_mensagem if record else None,
                 )
             finally:
                 db.close()

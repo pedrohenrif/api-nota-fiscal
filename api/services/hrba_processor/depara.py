@@ -86,6 +86,7 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
         return False, "sem_fornecedor"
 
     faltando: list[str] = []
+    estoques_sem_depara: list[str] = []
     for item in nota.get("NOTA_FISCAL_ITEM") or []:
         material_sede = str(item.get("CD_MATERIAL") or "")
         if not material_sede:
@@ -97,8 +98,20 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
             nota.setdefault("ITENS_SEM_DEPARA", []).append(
                 [item.get("CD_MATERIAL"), item.get("DS_REDUZIDA")]
             )
+        local = item.get("CD_LOCAL_ESTOQUE")
+        if depara_estoque(local) is None:
+            chave = str(local)
+            if chave not in estoques_sem_depara:
+                estoques_sem_depara.append(chave)
 
     if faltando:
-        logger.warning("HRBA sem de-para: %s", ", ".join(faltando[:10]))
+        logger.warning("HRBA sem de-para material: %s", ", ".join(faltando[:10]))
         return False, "sem_depara"
+    if estoques_sem_depara:
+        nota["ESTOQUES_SEM_DEPARA"] = estoques_sem_depara
+        logger.warning(
+            "HRBA sem de-para estoque (SEDE->HRBA): %s",
+            ", ".join(estoques_sem_depara),
+        )
+        return False, "sem_depara_estoque"
     return True, None
