@@ -113,13 +113,16 @@ def _inserir_itens(
             continue
         centro = definir_centro_custo(cd_estoque_hrba, consignado)
         cd_conta_item = item.get("CD_CONTA")
+        nr_atendimento = item.get("NR_ATENDIMENTO") or item.get("NR_DOC_IMPORTACAO")
         logger.info(
-            "[INSERT_NFI] item=%s material_hrba=%s conta_contabil=%s cd_conta=%s estoque=%s",
+            "[INSERT_NFI] item=%s material_hrba=%s conta_contabil=%s cd_conta=%s "
+            "estoque=%s nr_atendimento=%s",
             item.get("NR_ITEM_NF"),
             cd_material_hrba,
             conta,
             cd_conta_item,
             cd_estoque_hrba,
+            nr_atendimento,
         )
 
         try:
@@ -163,6 +166,7 @@ def _inserir_itens(
                     "QT_ITEM_ESTOQUE": item.get("QT_ITEM_ESTOQUE"),
                     "CENTRO_CUSTO": centro,
                     "CD_MATERIAL_ESTOQUE": CD_MATERIAL_ESTOQUE,
+                    "NR_ATENDIMENTO": nr_atendimento,
                 },
             )
         except Exception as exc:

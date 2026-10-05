@@ -94,6 +94,8 @@ SELECT
     nfi.CD_SEQUENCIA_PARAMETRO,
     nfi.CD_CATEGORIA_IVA,
     nfi.CD_PROCEDIMENTO_LOC,
+    nfi.NR_ATENDIMENTO,
+    nfi.NR_DOC_IMPORTACAO,
     mat.DS_REDUZIDA AS DS_REDUZIDA
 FROM
     tasy.NOTA_FISCAL_ITEM nfi
@@ -187,7 +189,7 @@ INSERT INTO NOTA_FISCAL_ITEM (
     :DT_VALIDADE, :CD_NATUREZA_OPERACAO, :CD_CGC_EMITENTE, :CD_PROCEDIMENTO, :IE_ORIGEM_PROCED,
     :CD_SEQUENCIA_PARAMETRO, :CD_CATEGORIA_IVA, :CD_PROCEDIMENTO_LOC, :DT_ATUALIZACAO_ESTOQUE,
     null, :CD_CONTA, null, null, null, null, :QT_ITEM_ESTOQUE, :CENTRO_CUSTO, :CD_MATERIAL_ESTOQUE,
-    null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null,
+    null, null, null, null, null, null, 0, null, :NR_ATENDIMENTO, null, null, null, null, null, null,
     null, null, null, null, null, null, null, null, null, null, null, null, null, 0
 )
 """
