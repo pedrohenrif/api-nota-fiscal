@@ -11,11 +11,11 @@ from services.hrba_processor.config import (
     USUARIO_INTEGRACAO,
 )
 from services.hrba_processor.depara import (
-    buscar_conta_contabil,
     buscar_unidades_medidas,
     definir_centro_custo,
     depara_estoque,
     depara_material,
+    resolver_conta_contabil,
 )
 from services.hrba_processor.oracle_session import OracleSession
 
@@ -100,8 +100,19 @@ def _inserir_itens(
             continue
 
         un_compra, un_estoque = buscar_unidades_medidas(hrba, cd_material_hrba)
-        conta = buscar_conta_contabil(hrba, cd_material_hrba)
+        conta = resolver_conta_contabil(hrba, cd_material_hrba, item)
+        if conta is None:
+            ok = False
+            motivo = (
+                f"item {item.get('NR_ITEM_NF')}: conta contabil vazia no HRBA "
+                f"(material_hrba={cd_material_hrba}, material_sede={material_sede}). "
+                "Cadastre obter_conta_contabil_material / cd_conta_contabil no material."
+            )
+            motivos.append(motivo)
+            logger.error("[INSERT_NFI] %s | %s", motivo, _ident(nota, nr_seq_hrba))
+            continue
         centro = definir_centro_custo(cd_estoque_hrba, consignado)
+        cd_conta_item = item.get("CD_CONTA")
 
         try:
             hrba.execute(
@@ -126,6 +137,7 @@ def _inserir_itens(
                     "NR_NOTA_FISCAL": item.get("NR_NOTA_FISCAL"),
                     "CD_MATERIAL": cd_material_hrba,
                     "CD_CONTA_CONTABIL": conta,
+                    "CD_CONTA": cd_conta_item,
                     "CD_UNIDADE_MEDIDA_COMPRA": un_compra,
                     "CD_UNIDADE_MEDIDA_ESTOQUE": un_estoque,
                     "NR_SEQ_ITEM_LOTE": item.get("NR_SEQ_ITEM_LOTE"),

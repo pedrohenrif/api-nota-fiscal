@@ -186,7 +186,7 @@ INSERT INTO NOTA_FISCAL_ITEM (
     :CD_UNIDADE_MEDIDA_ESTOQUE, :NR_SEQ_ITEM_LOTE, :CD_LOTE_FABRICACAO, :CD_LOCAL_ESTOQUE,
     :DT_VALIDADE, :CD_NATUREZA_OPERACAO, :CD_CGC_EMITENTE, :CD_PROCEDIMENTO, :IE_ORIGEM_PROCED,
     :CD_SEQUENCIA_PARAMETRO, :CD_CATEGORIA_IVA, :CD_PROCEDIMENTO_LOC, :DT_ATUALIZACAO_ESTOQUE,
-    null, null, null, null, null, null, :QT_ITEM_ESTOQUE, :CENTRO_CUSTO, :CD_MATERIAL_ESTOQUE,
+    null, :CD_CONTA, null, null, null, null, :QT_ITEM_ESTOQUE, :CENTRO_CUSTO, :CD_MATERIAL_ESTOQUE,
     null, null, null, null, null, null, 0, null, null, null, null, null, null, null, null,
     null, null, null, null, null, null, null, null, null, null, null, null, null, 0
 )
@@ -257,9 +257,17 @@ WHERE CD_MATERIAL = :CD_MATERIAL
 """
 
 SELECT_CONTA_CONTABIL = """
-SELECT obter_conta_contabil_material(1, cd_material)
-FROM MATERIAL
-WHERE CD_MATERIAL = :CD_MATERIAL
+SELECT obter_conta_contabil_material(:CD_ESTABELECIMENTO, :CD_MATERIAL) AS CD_CONTA_CONTABIL
+FROM dual
+"""
+
+SELECT_CONTA_CONTABIL_MATERIAL_ALT = """
+SELECT NVL(
+    obter_conta_contabil_material(:CD_ESTABELECIMENTO, cd_material),
+    TO_CHAR(cd_conta_contabil)
+) AS CD_CONTA_CONTABIL
+FROM tasy.material
+WHERE cd_material = :CD_MATERIAL
 """
 
 SELECT_CGC_EMITENTE = """
