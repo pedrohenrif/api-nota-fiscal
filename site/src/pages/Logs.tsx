@@ -156,7 +156,7 @@ export default function Logs() {
                 <th>Status</th>
                 <th>Tipo erro</th>
                 <th>Tent.</th>
-                <th>Retorno PR</th>
+                <th>Retorno</th>
               </tr>
             </thead>
             <tbody>

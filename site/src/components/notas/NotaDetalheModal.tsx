@@ -100,6 +100,7 @@ export default function NotaDetalheModal({
   }, [nota]);
 
   const preview = detalhe?.preview;
+  const isHrba = (detalhe?.estabelecimento || "").toUpperCase() === "HRBA";
   const integradaPr =
     detalhe?.status === "sent" || detalhe?.status === "sent_existente";
   const statusUi = detalhe ? statusDisplay(detalhe) : null;
@@ -197,14 +198,16 @@ export default function NotaDetalheModal({
 
           {integradaPr ? (
             <div className="alert-success">
-              Integrada no PR com sucesso.
+              {isHrba ? "Integrada no HRBA com sucesso." : "Integrada no PR com sucesso."}
               {msgTasyIntegrada ? (
                 <p className="depara-resumo-hint">
                   Write-back no Tasy concluído (`dt_integracao` preenchida).
                 </p>
               ) : null}
               {detalhe.pr_id ? (
-                <p className="depara-resumo-hint">PR ID: {detalhe.pr_id}</p>
+                <p className="depara-resumo-hint">
+                  {isHrba ? `NR Seq HRBA: ${detalhe.pr_id}` : `PR ID: ${detalhe.pr_id}`}
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -390,7 +393,9 @@ export default function NotaDetalheModal({
           ) : (
             <div className={`detalhe-empty ${integradaPr ? "alert-success" : "alert-error"}`}>
               {integradaPr
-                ? "Integrada no PR. Não foi possível carregar os itens no Tasy neste momento."
+                ? isHrba
+                  ? "Integrada no HRBA. Não foi possível carregar os itens no Tasy neste momento."
+                  : "Integrada no PR. Não foi possível carregar os itens no Tasy neste momento."
                 : detalhe.consulta_mensagem ??
                   "Não foi possível carregar os itens desta nota no Tasy."}
               {detalhe.consulta_mensagem ? (

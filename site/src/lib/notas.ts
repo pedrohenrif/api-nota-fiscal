@@ -43,31 +43,55 @@ export function isNotaJaExistenteNoPr(nota: NotaStatus): boolean {
   return textoIndicaJaExistiaNoPr(nota.pr_mensagem, nota.erro);
 }
 
+function isCanalHrba(nota: NotaStatus): boolean {
+  return (nota.estabelecimento || "").trim().toUpperCase() === "HRBA";
+}
+
+/** Rótulo do id persistido em pr_id: no HRBA é nr_sequencia Tasy destino. */
+function formatIdIntegracao(nota: NotaStatus): { suffix: string; title: string } | null {
+  if (nota.pr_id == null) return null;
+  if (isCanalHrba(nota)) {
+    return {
+      suffix: ` (NR Seq HRBA: ${nota.pr_id})`,
+      title: `NR Seq HRBA: ${nota.pr_id}`,
+    };
+  }
+  return {
+    suffix: ` (ID PR: ${nota.pr_id})`,
+    title: `ID PR: ${nota.pr_id}`,
+  };
+}
+
 export function formatRetornoPr(nota: NotaStatus): {
   text: string;
   kind: "success" | "warning" | "error" | "empty";
   title?: string;
 } {
+  const idInfo = formatIdIntegracao(nota);
+  const hrba = isCanalHrba(nota);
+
   if (isNotaJaExistenteNoPr(nota)) {
     const mensagem =
       nota.pr_mensagem?.trim() ||
       nota.erro?.trim() ||
-      "Já existe lançamento no PR com a mesma NF e FORNECEDOR; tratado como integrado.";
-    const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
+      (hrba
+        ? "Já existe lançamento no HRBA com a mesma NF e FORNECEDOR; tratado como integrado."
+        : "Já existe lançamento no PR com a mesma NF e FORNECEDOR; tratado como integrado.");
     return {
-      text: `${mensagem}${idSuffix}`,
+      text: `${mensagem}${idInfo?.suffix ?? ""}`,
       kind: "warning",
-      title: nota.pr_id != null ? `ID PR: ${nota.pr_id}` : mensagem,
+      title: idInfo?.title ?? mensagem,
     };
   }
 
   if (nota.status === "sent") {
-    const mensagem = nota.pr_mensagem?.trim() || "Nota enviada ao PR com sucesso";
-    const idSuffix = nota.pr_id != null ? ` (ID PR: ${nota.pr_id})` : "";
+    const mensagem =
+      nota.pr_mensagem?.trim() ||
+      (hrba ? "Nota integrada no HRBA com sucesso" : "Nota enviada ao PR com sucesso");
     return {
-      text: `${mensagem}${idSuffix}`,
+      text: `${mensagem}${idInfo?.suffix ?? ""}`,
       kind: "success",
-      title: nota.pr_id != null ? `ID PR: ${nota.pr_id}` : mensagem,
+      title: idInfo?.title ?? mensagem,
     };
   }
 
@@ -80,11 +104,14 @@ export function formatRetornoPr(nota: NotaStatus): {
 
 export function statusDisplay(nota: NotaStatus): { label: string; className: string } {
   if (isNotaJaExistenteNoPr(nota)) {
-    return { label: "Já no PR", className: "status-sent_existente" };
+    return {
+      label: isCanalHrba(nota) ? "Já no HRBA" : "Já no PR",
+      className: "status-sent_existente",
+    };
   }
   const labels: Record<string, string> = {
     sent: "Enviado",
-    sent_existente: "Já no PR",
+    sent_existente: isCanalHrba(nota) ? "Já no HRBA" : "Já no PR",
     retry_pending: "Aguardando retry",
     dead_letter: "Falha definitiva",
     pending: "Pendente",

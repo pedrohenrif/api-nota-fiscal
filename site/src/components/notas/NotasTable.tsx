@@ -33,7 +33,7 @@ export default function NotasTable({
             <th>Status</th>
             <th>Tipo erro</th>
             <th>Tent.</th>
-            <th>Retorno PR</th>
+            <th>Retorno</th>
             <th className="actions-col">Ações</th>
           </tr>
         </thead>
