@@ -195,6 +195,7 @@ export const ERRO_TIPO_OPTIONS = [
   { value: "", label: "Todos os tipos" },
   { value: "sem_depara", label: "Sem de-para" },
   { value: "sem_depara_estoque", label: "Sem de-para estoque" },
+  { value: "atendimento_inexistente", label: "Atendimento inexistente" },
   { value: "sem_lote", label: "Sem lote" },
   { value: "sem_fornecedor", label: "Sem fornecedor" },
   { value: "conta_contabil", label: "Conta contábil" },
@@ -208,6 +209,7 @@ export const ERRO_TIPO_OPTIONS = [
 export const ERRO_TIPO_LABELS: Record<string, string> = {
   sem_depara: "Sem de-para",
   sem_depara_estoque: "Sem de-para estoque",
+  atendimento_inexistente: "Atendimento inexistente",
   sem_lote: "Sem lote",
   sem_fornecedor: "Sem fornecedor",
   conta_contabil: "Conta contábil",

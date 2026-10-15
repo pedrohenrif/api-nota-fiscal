@@ -15,6 +15,7 @@ from services.hrba_processor.depara import (
     definir_centro_custo,
     depara_estoque,
     depara_material,
+    nr_atendimento_do_item,
     resolver_conta_contabil,
 )
 from services.hrba_processor.oracle_session import OracleSession
@@ -113,7 +114,7 @@ def _inserir_itens(
             continue
         centro = definir_centro_custo(cd_estoque_hrba, consignado)
         cd_conta_item = item.get("CD_CONTA")
-        nr_atendimento = item.get("NR_ATENDIMENTO") or item.get("NR_DOC_IMPORTACAO")
+        nr_atendimento = nr_atendimento_do_item(item)
         logger.info(
             "[INSERT_NFI] item=%s material_hrba=%s conta_contabil=%s cd_conta=%s "
             "estoque=%s nr_atendimento=%s",

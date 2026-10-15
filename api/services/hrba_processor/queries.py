@@ -291,3 +291,9 @@ SELECT CD_CGC
 FROM PESSOA_JURIDICA
 WHERE CD_CGC = :cd_cgc
 """
+
+SELECT_ATENDIMENTO_EXISTE = """
+SELECT nr_atendimento
+FROM tasy.atendimento_paciente
+WHERE nr_atendimento = :nr_atendimento
+"""

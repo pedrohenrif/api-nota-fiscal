@@ -131,6 +131,23 @@ def verificar_cgc_emitente(hrba: OracleSession, cd_cgc: Any) -> bool:
     return bool(rows)
 
 
+def atendimento_existe_hrba(hrba: OracleSession, nr_atendimento: Any) -> bool:
+    if nr_atendimento is None or str(nr_atendimento).strip() in ("", "None", "0"):
+        return False
+    rows = hrba.fetch_all(
+        queries.SELECT_ATENDIMENTO_EXISTE,
+        {"nr_atendimento": nr_atendimento},
+    )
+    return bool(rows)
+
+
+def nr_atendimento_do_item(item: dict[str, Any]) -> Any:
+    raw = item.get("NR_ATENDIMENTO") or item.get("NR_DOC_IMPORTACAO")
+    if raw is None or str(raw).strip() in ("", "None", "0"):
+        return None
+    return raw
+
+
 def definir_centro_custo(cd_estoque_hrba: Any, consignado: str) -> int | None:
     if cd_estoque_hrba == CD_ESTOQUE_DIRETO:
         return CENTRO_CUSTO_ESTOQUE_DIRETO
@@ -147,6 +164,9 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
 
     faltando: list[str] = []
     estoques_sem_depara: list[str] = []
+    atendimentos_inexistentes: list[str] = []
+    cache_atend: dict[str, bool] = {}
+
     for item in nota.get("NOTA_FISCAL_ITEM") or []:
         material_sede = str(item.get("CD_MATERIAL") or "")
         if not material_sede:
@@ -164,6 +184,15 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
             if chave not in estoques_sem_depara:
                 estoques_sem_depara.append(chave)
 
+        # Opcao B: so valida quando a SEDE trouxe atendimento preenchido.
+        nr_atend = nr_atendimento_do_item(item)
+        if nr_atend is not None:
+            chave_atend = str(nr_atend).strip()
+            if chave_atend not in cache_atend:
+                cache_atend[chave_atend] = atendimento_existe_hrba(hrba, nr_atend)
+            if not cache_atend[chave_atend] and chave_atend not in atendimentos_inexistentes:
+                atendimentos_inexistentes.append(chave_atend)
+
     if faltando:
         logger.warning("HRBA sem de-para material: %s", ", ".join(faltando[:10]))
         return False, "sem_depara"
@@ -174,4 +203,11 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
             ", ".join(estoques_sem_depara),
         )
         return False, "sem_depara_estoque"
+    if atendimentos_inexistentes:
+        nota["ATENDIMENTOS_INEXISTENTES"] = atendimentos_inexistentes
+        logger.warning(
+            "HRBA atendimento inexistente: %s",
+            ", ".join(atendimentos_inexistentes),
+        )
+        return False, "atendimento_inexistente"
     return True, None

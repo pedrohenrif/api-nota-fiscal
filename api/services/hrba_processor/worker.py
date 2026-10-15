@@ -107,6 +107,13 @@ def process_hrba_payload(payload: dict[str, Any]) -> str:
                     f"(cd_local_estoque: {locais}). "
                     "Inclua o mapeamento em DEPARA_ESTOQUE."
                 )
+            elif erro_tipo == "atendimento_inexistente":
+                atend = ", ".join(nota.get("ATENDIMENTOS_INEXISTENTES") or []) or "?"
+                msg = (
+                    "Atendimento informado na SEDE nao existe no HRBA "
+                    f"(nr_atendimento: {atend}). "
+                    "Cadastre/replique o atendimento no HRBA antes de integrar."
+                )
             else:
                 msg = "Itens sem de-para de material no HRBA (cd_sistema_ant)"
             upsert_processing_status(
