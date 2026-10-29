@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -9,6 +10,7 @@ from services.extractor.oracle_client import build_oracle_client, build_oracle_c
 from services.extractor.schemas import NotaFiscalPRPayload
 from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
 from services.extractor.sql_templates import (
+    HAS_TRIBUTACAO_SQL,
     HEADER_NOTE_BY_NR_SEQUENCIA_SQL,
     ITEMS_DIAGNOSTICO_SQL,
     LOTS_BY_ITEM_FALLBACK_SQL,
@@ -17,6 +19,8 @@ from services.extractor.sql_templates import (
     build_header_notes_sql,
     build_items_by_nr_sequencia_sql,
 )
+
+logger = logging.getLogger(__name__)
 
 # Locais excluidos no SQL de itens elegiveis (manter alinhado a sql_templates).
 LOCAIS_ESTOQUE_EXCLUIDOS = frozenset({104})
@@ -122,6 +126,50 @@ def _fetch_item_lots(
     return db_client.fetch_all(LOTS_BY_ITEM_FALLBACK_SQL, params=params)
 
 
+def _round_money(value: float) -> float:
+    return round(float(value) + 1e-9, 2)
+
+
+def _note_has_tributacao(db_client: QueryExecutor, nr_sequencia: Any) -> bool:
+    rows = db_client.fetch_all(
+        HAS_TRIBUTACAO_SQL, params={"nr_sequencia": nr_sequencia}
+    )
+    if not rows:
+        return False
+    return _to_float(_g(rows[0], "TEM_TRIBUTACAO")) > 0
+
+
+def _alinhar_itens_ao_valor_nota(
+    products: list[dict[str, Any]], valor_total: float
+) -> None:
+    """Rateia valores dos itens para soma = valorTotal (desconto ja no Tasy)."""
+    if not products:
+        return
+
+    alvo = _round_money(valor_total)
+    soma = _round_money(sum(_to_float(p.get("valor")) for p in products))
+    if abs(soma - alvo) < 0.01:
+        return
+
+    if soma == 0.0:
+        products[0]["valor"] = alvo
+        qtd = _to_float(products[0].get("qtdEntrada"))
+        products[0]["cunit"] = (alvo / qtd) if qtd > 0 else 0.0
+        return
+
+    acumulado = 0.0
+    last_idx = len(products) - 1
+    for idx, produto in enumerate(products):
+        if idx == last_idx:
+            novo_valor = _round_money(alvo - acumulado)
+        else:
+            novo_valor = _round_money(_to_float(produto.get("valor")) * alvo / soma)
+            acumulado = _round_money(acumulado + novo_valor)
+        produto["valor"] = novo_valor
+        qtd = _to_float(produto.get("qtdEntrada"))
+        produto["cunit"] = (novo_valor / qtd) if qtd > 0 else 0.0
+
+
 def _build_note_payload(
     estabelecimento: str,
     note_row: dict[str, Any],
@@ -166,6 +214,23 @@ def _build_note_payload(
             }
         )
 
+    valor_total = _to_float(_g(note_row, "VALOR_TOTAL_NOTA"))
+    # Tributacao: Tasy ja desconta no total da nota. Nao enviamos tributos ao PR;
+    # so garantimos soma(itens) = valorTotal para evitar "valor divergente".
+    if products and _note_has_tributacao(db_client, nr_sequencia):
+        soma_antes = _round_money(sum(_to_float(p.get("valor")) for p in products))
+        _alinhar_itens_ao_valor_nota(products, valor_total)
+        soma_depois = _round_money(sum(_to_float(p.get("valor")) for p in products))
+        if abs(soma_antes - soma_depois) >= 0.01:
+            logger.info(
+                "Nota %s (seq %s) com tributacao: itens %.2f -> %.2f (valorTotal %.2f)",
+                _to_str(_g(note_row, "NF")),
+                _to_str(nr_sequencia),
+                soma_antes,
+                soma_depois,
+                _round_money(valor_total),
+            )
+
     return NotaFiscalPRPayload(
         estabelecimento=estabelecimento,
         nrSequencia=_to_str(nr_sequencia),
@@ -180,7 +245,7 @@ def _build_note_payload(
         desconto=_to_float(_g(note_row, "DESCONTO")),
         ipi=_to_float(_g(note_row, "IPI")),
         frete=_to_float(_g(note_row, "FRETE")),
-        valorTotal=_to_float(_g(note_row, "VALOR_TOTAL_NOTA")),
+        valorTotal=valor_total,
         qtdItens=len(products),
         produtos=products,
     )

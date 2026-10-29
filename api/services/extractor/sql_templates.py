@@ -97,6 +97,7 @@ SELECT
     nfi.vl_unitario_item_nf                                 AS CUNIT,
     -- PR exige soma(valor itens) = VALOR_TOTAL_NOTA ja com desconto/acrescimo.
     -- Usar liquido do item (fallback no bruto se liquido nulo).
+    -- Se houver tributacao, o extrator rateia os itens para o valorTotal do Tasy.
     NVL(nfi.vl_liquido, nfi.vl_total_item_nf)               AS VALOR,
     nfi.qt_item_nf                                          AS QTDE_ENTRADA,
     nfi.nr_sequencia                                        AS NR_SEQ_NOTA,
@@ -160,6 +161,22 @@ WHERE
     nfi.nr_sequencia = :nr_sequencia
 ORDER BY
     nfi.nr_item_nf
+"""
+
+
+# Tributos da aba do Tasy. Nao enviamos detalhe ao PR: so detectamos existencia.
+# Quando ha tributacao, o desconto ja esta refletido em vl_total_nota.
+HAS_TRIBUTACAO_SQL = """
+SELECT CASE
+    WHEN EXISTS (
+        SELECT 1
+        FROM tasy.nota_fiscal_item_trib t
+        WHERE t.nr_sequencia = :nr_sequencia
+          AND NVL(t.vl_tributo, 0) <> 0
+    ) THEN 1
+    ELSE 0
+END AS TEM_TRIBUTACAO
+FROM dual
 """
 
 
