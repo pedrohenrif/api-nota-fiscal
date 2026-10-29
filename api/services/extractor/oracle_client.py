@@ -77,7 +77,7 @@ def build_oracle_client(dsn: str | None = None) -> OracleClient:
 def build_oracle_client_for(estabelecimento: str | None = None) -> OracleClient:
     """
     PR (Castelo/HRAS/...): ORACLE_DSN.
-    HRBA: ORACLE_HRBA_SEDE_DSN_* (nunca o DSN do PR).
+    HRBA (fonte SEDE): mesmo ORACLE_DSN do PR, salvo override ORACLE_HRBA_SEDE_DSN_*.
     """
     if estabelecimento == "HRBA":
         from services.common.hrba_oracle import get_hrba_sede_dsn
