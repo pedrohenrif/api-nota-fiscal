@@ -138,7 +138,7 @@ export default function Configuracoes() {
         Controle o ciclo automatico do extractor (6 min) e o envio de relatorios por e-mail
         ({intervalo} min) por estabelecimento. A emissao manual pelo painel continua disponivel
         mesmo com o scheduler desligado. E-mail automatico dispara apenas com pendencias/erros
-        (de-para, lote, retorno PR); notas ja emitidas nao disparam o ciclo sozinhas.
+        (de-para, lote, retorno PR / erros HRBA); notas ja emitidas nao disparam o ciclo sozinhas.
       </p>
 
       {mensagem ? <div className="alert-success">{mensagem}</div> : null}

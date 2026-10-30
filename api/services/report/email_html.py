@@ -58,9 +58,16 @@ def build_report_html(
     erros_pr: list[dict[str, Any]],
 ) -> str:
     agora = format_now_brasilia()
+    is_hrba = (estabelecimento or "").strip().upper() == "HRBA"
+    id_col = "NR Seq HRBA" if is_hrba else "ID PR"
+    erros_label = (
+        "Erros de integracao HRBA" if is_hrba else "Erros de retorno do PR"
+    )
+    erros_resumo = "erros HRBA" if is_hrba else "erros PR"
     summary = (
         f"{len(integradas)} integradas · {len(nao_integradas)} nao integradas · "
-        f"{len(sem_depara)} sem de-para · {len(sem_lote)} sem lote · {len(erros_pr)} erros PR"
+        f"{len(sem_depara)} sem de-para · {len(sem_lote)} sem lote · "
+        f"{len(erros_pr)} {erros_resumo}"
     )
 
     integ_rows = [
@@ -108,40 +115,45 @@ def build_report_html(
         for n in erros_pr
     ]
 
-    sections = "".join(
-        [
-            _section(
-                "Notas integradas",
-                "#15803d",
-                ["Numero Tasy", "Numero NF", "Valor", "ID PR"],
-                integ_rows,
-            ),
-            _section(
-                "Notas nao integradas",
-                "#b45309",
-                ["Numero Tasy", "Numero NF", "Valor"],
-                nao_rows,
-            ),
-            _section(
-                "Notas com item sem de-para",
-                "#b91c1c",
-                ["Numero Tasy", "Numero NF", "Valor", "Item", "Descricao"],
-                depara_rows,
-            ),
+    sections_parts = [
+        _section(
+            "Notas integradas",
+            "#15803d",
+            ["Numero Tasy", "Numero NF", "Valor", id_col],
+            integ_rows,
+        ),
+        _section(
+            "Notas nao integradas",
+            "#b45309",
+            ["Numero Tasy", "Numero NF", "Valor"],
+            nao_rows,
+        ),
+        _section(
+            "Notas com item sem de-para",
+            "#b91c1c",
+            ["Numero Tasy", "Numero NF", "Valor", "Item", "Descricao"],
+            depara_rows,
+        ),
+    ]
+    # Lote/controleDeLote e de-para via API sao do canal PR; HRBA nao usa.
+    if not is_hrba:
+        sections_parts.append(
             _section(
                 "Itens com necessidade de lote",
                 "#7c3aed",
                 ["Numero Tasy", "Numero NF", "Inconsistencia"],
                 lote_rows,
-            ),
-            _section(
-                "Erros de retorno do PR",
-                "#dc2626",
-                ["Numero Tasy", "Numero NF", "Status", "Erro"],
-                erro_rows,
-            ),
-        ]
+            )
+        )
+    sections_parts.append(
+        _section(
+            erros_label,
+            "#dc2626",
+            ["Numero Tasy", "Numero NF", "Status", "Erro"],
+            erro_rows,
+        )
     )
+    sections = "".join(sections_parts)
 
     if not sections:
         sections = (
