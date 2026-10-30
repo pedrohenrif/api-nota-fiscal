@@ -25,8 +25,14 @@ from services.report.config import REPORT_LOOKBACK_MINUTES, USE_MOCK_ORACLE
 from services.report.report_sent import filter_unreported
 
 
-def _oracle_client():
-    return MockOracleClient() if USE_MOCK_ORACLE else build_oracle_client()
+def _oracle_client(estabelecimento: str | None = None):
+    if USE_MOCK_ORACLE:
+        return MockOracleClient()
+    if estabelecimento:
+        from services.extractor.oracle_client import build_oracle_client_for
+
+        return build_oracle_client_for(estabelecimento)
+    return build_oracle_client()
 
 
 def _fetch_middleware_sent(estabelecimento: str, since: datetime) -> dict[str, dict]:
@@ -114,7 +120,7 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
 
     since = datetime.now(timezone.utc) - timedelta(minutes=max(REPORT_LOOKBACK_MINUTES, 1))
     profile = PROFILES[estabelecimento]
-    oracle = _oracle_client()
+    oracle = _oracle_client(estabelecimento)
     header_sql = build_header_notes_sql(profile.cd_operacao_nf_in)
     note_rows = oracle.fetch_all(
         header_sql,
@@ -159,83 +165,99 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
     sem_depara: list[dict[str, Any]] = []
     sem_lote: list[dict[str, Any]] = []
 
-    pr_config = get_pr_config(estabelecimento)
-
-    with httpx.Client(timeout=30.0) as client:
+    # HRBA nao usa API/token do PR — so middleware + pendentes na SEDE.
+    if getattr(profile, "destino", "pr") == "hrba":
         for note_row in note_rows:
             nr_sequencia = _to_str(_g(note_row, "NR_SEQUENCIA"))
             nf = _to_str(_g(note_row, "NF"))
             valor = _to_float(_g(note_row, "VALOR_TOTAL_NOTA"))
-
             if nr_sequencia in sent_all_keys or nf in sent_all_keys:
                 continue
-
-            item_rows = _fetch_note_items(
-                db_client=oracle,
-                nr_sequencia=nr_sequencia,
-                cd_operacao_nf_item_not_in=profile.cd_operacao_nf_item_not_in,
+            nao_integradas.append(
+                {
+                    "nr_sequencia": nr_sequencia,
+                    "nf": nf,
+                    "valor_total": valor,
+                }
             )
+    else:
+        pr_config = get_pr_config(estabelecimento)
 
-            itens_sem_depara: list[str] = []
-            desc_sem_depara: list[str] = []
-            itens_sem_lote: list[str] = []
+        with httpx.Client(timeout=30.0) as client:
+            for note_row in note_rows:
+                nr_sequencia = _to_str(_g(note_row, "NR_SEQUENCIA"))
+                nf = _to_str(_g(note_row, "NF"))
+                valor = _to_float(_g(note_row, "VALOR_TOTAL_NOTA"))
 
-            for item in item_rows:
-                cod = _to_str(_g(item, "CODPROD"))
-                ds = _to_str(_g(item, "DS_REDUZIDA")) or "—"
-                depara = check_product_depara(
-                    client=client,
-                    base_url=pr_config["base_url"],
-                    token=pr_config["token"],
-                    cod_material=cod,
-                )
-                if depara["status"] != "ok":
-                    itens_sem_depara.append(cod)
-                    desc_sem_depara.append(ds)
+                if nr_sequencia in sent_all_keys or nf in sent_all_keys:
                     continue
 
-                # So exige lote completo quando o PR marca ControleDeLote=true.
-                if depara.get("controleDeLote"):
-                    nr_item = _g(item, "NR_ITEM_NF")
-                    lots = _fetch_item_lots(oracle, nr_sequencia, nr_item)
-                    has_lote_completo = any(
-                        _to_str(_g(lot, "LOTE")) and _g(lot, "DT_VALIDADE") is not None
-                        for lot in lots
-                    )
-                    if not has_lote_completo:
-                        itens_sem_lote.append(
-                            f"Item {nr_item} (material {cod}) exige lote/validade no PR"
-                        )
-
-            # Prioridade exclusiva: sem de-para > sem lote > nao integrada.
-            # Evita a mesma nota aparecer em mais de uma secao do e-mail.
-            if itens_sem_depara:
-                sem_depara.append(
-                    {
-                        "nr_sequencia": nr_sequencia,
-                        "nf": nf,
-                        "valor_total": valor,
-                        "itens": itens_sem_depara,
-                        "descricoes": desc_sem_depara,
-                    }
+                item_rows = _fetch_note_items(
+                    db_client=oracle,
+                    nr_sequencia=nr_sequencia,
+                    cd_operacao_nf_item_not_in=profile.cd_operacao_nf_item_not_in,
                 )
-            elif itens_sem_lote:
-                for msg in itens_sem_lote:
-                    sem_lote.append(
+
+                itens_sem_depara: list[str] = []
+                desc_sem_depara: list[str] = []
+                itens_sem_lote: list[str] = []
+
+                for item in item_rows:
+                    cod = _to_str(_g(item, "CODPROD"))
+                    ds = _to_str(_g(item, "DS_REDUZIDA")) or "—"
+                    depara = check_product_depara(
+                        client=client,
+                        base_url=pr_config["base_url"],
+                        token=pr_config["token"],
+                        cod_material=cod,
+                    )
+                    if depara["status"] != "ok":
+                        itens_sem_depara.append(cod)
+                        desc_sem_depara.append(ds)
+                        continue
+
+                    # So exige lote completo quando o PR marca ControleDeLote=true.
+                    if depara.get("controleDeLote"):
+                        nr_item = _g(item, "NR_ITEM_NF")
+                        lots = _fetch_item_lots(oracle, nr_sequencia, nr_item)
+                        has_lote_completo = any(
+                            _to_str(_g(lot, "LOTE")) and _g(lot, "DT_VALIDADE") is not None
+                            for lot in lots
+                        )
+                        if not has_lote_completo:
+                            itens_sem_lote.append(
+                                f"Item {nr_item} (material {cod}) exige lote/validade no PR"
+                            )
+
+                # Prioridade exclusiva: sem de-para > sem lote > nao integrada.
+                # Evita a mesma nota aparecer em mais de uma secao do e-mail.
+                if itens_sem_depara:
+                    sem_depara.append(
                         {
                             "nr_sequencia": nr_sequencia,
                             "nf": nf,
-                            "inconsistencia": msg,
+                            "valor_total": valor,
+                            "itens": itens_sem_depara,
+                            "descricoes": desc_sem_depara,
                         }
                     )
-            else:
-                nao_integradas.append(
-                    {
-                        "nr_sequencia": nr_sequencia,
-                        "nf": nf,
-                        "valor_total": valor,
-                    }
-                )
+                elif itens_sem_lote:
+                    for msg in itens_sem_lote:
+                        sem_lote.append(
+                            {
+                                "nr_sequencia": nr_sequencia,
+                                "nf": nf,
+                                "inconsistencia": msg,
+                            }
+                        )
+                else:
+                    nao_integradas.append(
+                        {
+                            "nr_sequencia": nr_sequencia,
+                            "nf": nf,
+                            "valor_total": valor,
+                        }
+                    )
 
     nao_integradas = filter_unreported(estabelecimento, "nao_integradas", nao_integradas)
 
