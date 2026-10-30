@@ -130,9 +130,11 @@ def shutdown_scheduler() -> None:
 
 @app.post("/run")
 def run_extraction(estabelecimento: str | None = None) -> dict:
+    # Emissao manual NAO usa scheduler_lock: o ciclo automatico pode ficar
+    # minutos preso em ORA-12170 e o painel caia em "extracao indisponivel".
+    # O lock fica so para evitar dois ciclos automaticos em paralelo.
     try:
-        with scheduler_lock:
-            return _run_extraction_cycle(estabelecimento=estabelecimento)
+        return _run_extraction_cycle(estabelecimento=estabelecimento)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=friendly_oracle_error(exc))
 

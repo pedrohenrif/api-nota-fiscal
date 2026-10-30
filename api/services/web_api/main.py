@@ -514,7 +514,8 @@ def emitir_nota(
 ) -> dict:
     estabelecimento = _resolve_estabelecimento(current_user, payload.estabelecimento)
     try:
-        with httpx.Client(timeout=60.0) as client:
+        # Extracao pode demorar (Oracle + varios itens); 60s gerava falso "indisponivel".
+        with httpx.Client(timeout=180.0) as client:
             response = client.post(
                 f"{EXTRACTOR_URL}/run", params={"estabelecimento": estabelecimento}
             )
