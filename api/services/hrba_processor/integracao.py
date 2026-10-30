@@ -105,9 +105,9 @@ def _inserir_itens(
         if conta is None:
             ok = False
             motivo = (
-                f"item {item.get('NR_ITEM_NF')}: conta contabil vazia no HRBA "
+                f"item {item.get('NR_ITEM_NF')}: conta contabil ausente/invalida no HRBA "
                 f"(material_hrba={cd_material_hrba}, material_sede={material_sede}). "
-                "Cadastre obter_conta_contabil_material / cd_conta_contabil no material."
+                "Cadastre conta em material_estab / obter_conta_contabil_material no estab HRBA."
             )
             motivos.append(motivo)
             logger.error("[INSERT_NFI] %s | %s", motivo, _ident(nota, nr_seq_hrba))
@@ -439,12 +439,17 @@ def integrar_nota(
         if not itens_ok:
             hrba.rollback()
             detalhe = "; ".join(motivos_itens[:5]) if motivos_itens else "motivo desconhecido"
+            erro_tipo = (
+                "conta_contabil"
+                if "conta contabil" in detalhe.lower()
+                else "sem_depara"
+            )
             return {
                 "ok": False,
                 "nr_seq_hrba": nr_seq_hrba,
                 "ja_existia": False,
                 "mensagem": f"Falha ao inserir itens no HRBA: {detalhe}",
-                "erro_tipo": "sem_depara",
+                "erro_tipo": erro_tipo,
             }
         _inserir_lotes(hrba, nota, nr_seq_hrba)
         _inserir_vencimentos(hrba, nota, nr_seq_hrba)

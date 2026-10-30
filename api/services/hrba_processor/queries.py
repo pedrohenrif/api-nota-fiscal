@@ -270,13 +270,20 @@ SELECT obter_conta_contabil_material(
 FROM dual
 """
 
-SELECT_CONTA_CONTABIL_MATERIAL_ALT = """
-SELECT NVL(
-    obter_conta_contabil_material(:CD_ESTABELECIMENTO, cd_material),
-    TO_CHAR(cd_conta_contabil)
-) AS CD_CONTA_CONTABIL
-FROM tasy.material
-WHERE cd_material = :CD_MATERIAL
+# Em varias bases a conta fica em material_estab (nao na tabela material).
+SELECT_CONTA_CONTABIL_MATERIAL_ESTAB = """
+SELECT cd_conta_contabil AS CD_CONTA_CONTABIL
+FROM tasy.material_estab
+WHERE cd_estabelecimento = :CD_ESTABELECIMENTO
+  AND cd_material = :CD_MATERIAL
+  AND cd_conta_contabil IS NOT NULL
+"""
+
+# Valida FK NOTFIIT_CONCONT_FK antes do INSERT do item.
+SELECT_CONTA_CONTABIL_EXISTE = """
+SELECT cd_conta_contabil
+FROM tasy.conta_contabil
+WHERE cd_conta_contabil = :CD_CONTA_CONTABIL
 """
 
 SELECT_ITEM_CONTA_POS_INSERT = """

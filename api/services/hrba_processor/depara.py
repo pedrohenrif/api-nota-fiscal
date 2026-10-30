@@ -59,17 +59,42 @@ def buscar_unidades_medidas(hrba: OracleSession, cd_material: Any) -> tuple[Any,
     return row.get("CD_UNIDADE_MEDIDA_COMPRA"), row.get("CD_UNIDADE_MEDIDA_ESTOQUE")
 
 
+def _conta_valida(value: Any) -> bool:
+    return value is not None and str(value).strip() not in ("", "None")
+
+
+def conta_contabil_existe_hrba(hrba: OracleSession, cd_conta_contabil: Any) -> bool:
+    """Garante que a conta existe no HRBA (evita ORA-02291 NOTFIIT_CONCONT_FK)."""
+    if not _conta_valida(cd_conta_contabil):
+        return False
+    try:
+        rows = hrba.fetch_all(
+            queries.SELECT_CONTA_CONTABIL_EXISTE,
+            {"CD_CONTA_CONTABIL": cd_conta_contabil},
+        )
+    except Exception:
+        logger.warning(
+            "Falha ao validar conta_contabil no HRBA | conta=%s",
+            cd_conta_contabil,
+            exc_info=True,
+        )
+        return False
+    return bool(rows)
+
+
 def buscar_conta_contabil(
     hrba: OracleSession,
     cd_material_hrba: Any,
     cd_local_estoque: Any = None,
 ) -> Any:
-    """Busca conta contabil do material no HRBA (funcao Tasy + fallback coluna material)."""
+    """Busca conta contabil do material no HRBA (funcao Tasy + material_estab)."""
     params: dict[str, Any] = {
         "CD_ESTABELECIMENTO": CD_ESTABELECIMENTO_HRBA,
         "CD_MATERIAL": cd_material_hrba,
     }
     queries_try: list[tuple[str, dict[str, Any]]] = []
+    # 2 args primeiro: em prod HRBA a assinatura com estoque pode nao existir (PLS-306).
+    queries_try.append((queries.SELECT_CONTA_CONTABIL, params))
     if cd_local_estoque is not None:
         queries_try.append(
             (
@@ -77,8 +102,7 @@ def buscar_conta_contabil(
                 {**params, "CD_LOCAL_ESTOQUE": cd_local_estoque},
             )
         )
-    queries_try.append((queries.SELECT_CONTA_CONTABIL, params))
-    queries_try.append((queries.SELECT_CONTA_CONTABIL_MATERIAL_ALT, params))
+    queries_try.append((queries.SELECT_CONTA_CONTABIL_MATERIAL_ESTAB, params))
 
     for sql, sql_params in queries_try:
         try:
@@ -94,8 +118,15 @@ def buscar_conta_contabil(
         if not rows:
             continue
         value = next(iter(rows[0].values()))
-        if value is not None and str(value).strip() not in ("", "None"):
+        if not _conta_valida(value):
+            continue
+        if conta_contabil_existe_hrba(hrba, value):
             return value
+        logger.warning(
+            "Conta %s retornada para material %s nao existe em conta_contabil (HRBA)",
+            value,
+            cd_material_hrba,
+        )
     return None
 
 
@@ -104,24 +135,31 @@ def resolver_conta_contabil(
 ) -> Any:
     """
     Conta contabil para o item HRBA:
-    1) funcao/cadastro no HRBA (com e sem local estoque)
-    2) CD_CONTA_CONTABIL ja existente no item SEDE
-    3) CD_CONTA do item SEDE (em algumas bases a UI mostra esse codigo)
+    1) funcao/cadastro no HRBA (material_estab / obter_conta_contabil_material)
+    2) CD_CONTA_CONTABIL do item SEDE, se existir no plano de contas do HRBA
+
+    Nao usa CD_CONTA da SEDE como CD_CONTA_CONTABIL — costuma ser classe/grupo
+    e estoura ORA-02291 (NOTFIIT_CONCONT_FK).
     """
     local_hrba = depara_estoque(item.get("CD_LOCAL_ESTOQUE"))
     conta = buscar_conta_contabil(hrba, cd_material_hrba, local_hrba)
     if conta is not None:
         return conta
-    for key in ("CD_CONTA_CONTABIL", "CD_CONTA"):
-        raw = item.get(key)
-        if raw is not None and str(raw).strip() not in ("", "None"):
-            logger.info(
-                "Conta contabil via fallback item SEDE | material_hrba=%s campo=%s valor=%s",
-                cd_material_hrba,
-                key,
-                raw,
-            )
-            return raw
+
+    raw = item.get("CD_CONTA_CONTABIL")
+    if _conta_valida(raw) and conta_contabil_existe_hrba(hrba, raw):
+        logger.info(
+            "Conta contabil via fallback item SEDE | material_hrba=%s valor=%s",
+            cd_material_hrba,
+            raw,
+        )
+        return raw
+    if _conta_valida(raw):
+        logger.warning(
+            "CD_CONTA_CONTABIL SEDE=%s nao existe no plano de contas HRBA | material=%s",
+            raw,
+            cd_material_hrba,
+        )
     return None
 
 
