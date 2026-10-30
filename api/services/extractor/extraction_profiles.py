@@ -52,14 +52,14 @@ PROFILES = {
         cd_operacao_nf_item_not_in=(33,),
     ),
     # HRBA — SEDE estab 10 -> Tasy HRBA (nao PR)
-    # dt_emissao_min = piso operacional (semana passada em diante).
+    # dt_emissao_min = piso operacional (inicio do mes corrente).
     "HRBA": ExtractionProfile(
         estabelecimento_nome="HRBA",
         cd_estabelecimento=10,
-        dt_emissao_min="2026-10-23",
+        dt_emissao_min="2026-10-01",
         cd_operacao_nf_in=(1, 21, 22, 37, 39),
         cd_operacao_nf_item_not_in=(),
-        dt_atualizacao_estoque_min="2026-10-23",
+        dt_atualizacao_estoque_min="2026-10-01",
         destino="hrba",
     ),
 }
