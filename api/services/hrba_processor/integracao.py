@@ -350,6 +350,15 @@ def _executar_procedures(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba:
         logger.exception("[PROCEDURE] consistir_nf | %s", _ident(nota, nr_seq_hrba))
         inconsistencias.append(f"consistir_nf: {exc}")
 
+    # Se consistir falhou, NAO segue com lote/aprovacao/atualizar — evita nota
+    # "quase integrada" no Delphi com estoque/lote parcialmente processado.
+    if not consistir_ok or ds_erro_item or ds_erro_nota:
+        logger.warning(
+            "[PROCEDURE] abortando demais procedures apos falha na consistir | %s",
+            _ident(nota, nr_seq_hrba),
+        )
+        return False
+
     try:
         with conn.cursor() as cursor:
             ds_erro_var = cursor.var(str)
@@ -362,9 +371,11 @@ def _executar_procedures(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba:
             if ds_erro:
                 inconsistencias.append(str(ds_erro))
                 nota_valida = False
+                return False
     except Exception as exc:
         logger.exception("[PROCEDURE] aprovacao_nf | %s", _ident(nota, nr_seq_hrba))
         inconsistencias.append(f"aprovacao_nf: {exc}")
+        return False
 
     try:
         hrba.callproc(
@@ -374,6 +385,7 @@ def _executar_procedures(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba:
     except Exception as exc:
         logger.exception("[PROCEDURE] gerar_lote | %s", _ident(nota, nr_seq_hrba))
         inconsistencias.append(f"gerar_lote: {exc}")
+        return False
 
     try:
         with conn.cursor() as cursor:
@@ -387,21 +399,22 @@ def _executar_procedures(hrba: OracleSession, nota: dict[str, Any], nr_seq_hrba:
             if ds_retorno:
                 inconsistencias.append(str(ds_retorno))
                 nota_valida = False
+                return False
     except Exception as exc:
         logger.exception("[PROCEDURE] divergencia | %s", _ident(nota, nr_seq_hrba))
         inconsistencias.append(f"divergencia: {exc}")
+        return False
 
-    if consistir_ok and not ds_erro_item and not ds_erro_nota:
-        try:
-            hrba.callproc(
-                "atualizar_nota_fiscal",
-                [nr_seq_hrba, "1", USUARIO_INTEGRACAO, 1, "S"],
-            )
-            hrba.commit()
-        except Exception as exc:
-            logger.exception("[PROCEDURE] atualizar_nf | %s", _ident(nota, nr_seq_hrba))
-            inconsistencias.append(f"atualizar_nf: {exc}")
-            nota_valida = False
+    try:
+        hrba.callproc(
+            "atualizar_nota_fiscal",
+            [nr_seq_hrba, "1", USUARIO_INTEGRACAO, 1, "S"],
+        )
+        hrba.commit()
+    except Exception as exc:
+        logger.exception("[PROCEDURE] atualizar_nf | %s", _ident(nota, nr_seq_hrba))
+        inconsistencias.append(f"atualizar_nf: {exc}")
+        nota_valida = False
 
     return nota_valida
 

@@ -139,27 +139,44 @@ def definir_centro_custo(cd_estoque_hrba: Any, consignado: str) -> int | None:
 
 
 def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str | None]:
-    """Retorna (ok, erro_tipo)."""
+    """Retorna (ok, erro_tipo).
+
+    Valida de-para e conta contábil ANTES de qualquer INSERT no HRBA, para nao
+    deixar nota parcial no Tasy quando o cadastro do material esta incompleto.
+    """
     fornecedor = nota.get("FORNECEDOR")
     if not verificar_cgc_emitente(hrba, fornecedor):
         return False, "sem_fornecedor"
 
     faltando: list[str] = []
     estoques_sem_depara: list[str] = []
+    sem_conta: list[str] = []
     atendimentos_inexistentes: list[str] = []
     cache_atend: dict[str, bool] = {}
+    cache_conta: dict[str, Any] = {}
 
     for item in nota.get("NOTA_FISCAL_ITEM") or []:
         material_sede = str(item.get("CD_MATERIAL") or "")
         if not material_sede:
             faltando.append("(sem codigo)")
             continue
-        if depara_material(hrba, material_sede) is None:
+        cd_material_hrba = depara_material(hrba, material_sede)
+        if cd_material_hrba is None:
             ds = item.get("DS_REDUZIDA") or ""
             faltando.append(f"{material_sede} {ds}".strip())
             nota.setdefault("ITENS_SEM_DEPARA", []).append(
                 [item.get("CD_MATERIAL"), item.get("DS_REDUZIDA")]
             )
+        else:
+            chave_mat = str(cd_material_hrba)
+            if chave_mat not in cache_conta:
+                cache_conta[chave_mat] = buscar_conta_contabil(hrba, cd_material_hrba)
+            if not _conta_valida(cache_conta[chave_mat]):
+                ds = item.get("DS_REDUZIDA") or ""
+                sem_conta.append(
+                    f"sede={material_sede}->hrba={cd_material_hrba} {ds}".strip()
+                )
+
         local = item.get("CD_LOCAL_ESTOQUE")
         if depara_estoque(local) is None:
             chave = str(local)
@@ -185,6 +202,20 @@ def validar_nota(hrba: OracleSession, nota: dict[str, Any]) -> tuple[bool, str |
             ", ".join(estoques_sem_depara),
         )
         return False, "sem_depara_estoque"
+    if sem_conta:
+        # Unicos preservando ordem
+        vistos: set[str] = set()
+        unicos: list[str] = []
+        for item in sem_conta:
+            if item not in vistos:
+                vistos.add(item)
+                unicos.append(item)
+        nota["MATERIAIS_SEM_CONTA"] = unicos
+        logger.warning(
+            "HRBA material sem conta contabil (obter_conta_contabil_material): %s",
+            "; ".join(unicos[:10]),
+        )
+        return False, "conta_contabil"
     if atendimentos_inexistentes:
         nota["ATENDIMENTOS_INEXISTENTES"] = atendimentos_inexistentes
         logger.warning(

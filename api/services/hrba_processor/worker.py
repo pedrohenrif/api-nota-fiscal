@@ -115,6 +115,13 @@ def process_hrba_payload(payload: dict[str, Any]) -> str:
                     f"(nr_atendimento: {atend}). "
                     "Cadastre/replique o atendimento no HRBA antes de integrar."
                 )
+            elif erro_tipo == "conta_contabil":
+                mats = "; ".join(nota.get("MATERIAIS_SEM_CONTA") or []) or "?"
+                msg = (
+                    "Conta contabil ausente no cadastro do material HRBA "
+                    f"(obter_conta_contabil_material): {mats}. "
+                    "Nada foi inserido no HRBA — cadastre a conta e reemitir."
+                )
             else:
                 msg = "Itens sem de-para de material no HRBA (cd_sistema_ant)"
             upsert_processing_status(
