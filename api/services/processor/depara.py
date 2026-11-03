@@ -147,8 +147,24 @@ def _validate_lotes_obrigatorios(cod_material: str, lots: list[dict[str, Any]]) 
 
 
 def enrich_preview_with_depara(estabelecimento: str, preview: dict) -> tuple[dict, dict]:
-    pr_config = get_pr_config(estabelecimento)
     produtos = preview.get("produtos") or []
+
+    # HRBA nao usa de-para do PR (Tasy SEDE -> Tasy HRBA via cd_sistema_ant).
+    if (estabelecimento or "").strip().upper() == "HRBA":
+        for produto in produtos:
+            cod = str(produto.get("codProd") or "").strip()
+            produto["depara"] = {
+                "status": "ok",
+                "codProdTasy": cod,
+                "codProdPR": None,
+                "controleDeLote": False,
+                "mensagem": "Canal HRBA: de-para no Tasy (cd_sistema_ant), nao no PR",
+            }
+            produto["controleDeLote"] = False
+        resumo = {"total": len(produtos), "ok": len(produtos), "falha": 0, "canal": "hrba"}
+        return preview, resumo
+
+    pr_config = get_pr_config(estabelecimento)
     ok_count = 0
     fail_count = 0
 

@@ -87,22 +87,23 @@ def resolver_conta_contabil(
 ) -> Any:
     """
     Conta contabil alinhada ao GA0016:
-    1) obter_conta_contabil_material(1, material_hrba)
-    2) se vazia, CD_CONTA_CONTABIL do item SEDE (sem validar plano — o Oracle decide)
+    so obter_conta_contabil_material(1, material_hrba).
+
+    Nao usa CD_CONTA_CONTABIL da SEDE: em prod a conta da SEDE muitas vezes
+    nao existe no plano do HRBA e estoura ORA-02291 (NOTFIIT_CONCONT_FK).
     """
     conta = buscar_conta_contabil(hrba, cd_material_hrba)
     if _conta_valida(conta):
         return conta
-
-    raw = item.get("CD_CONTA_CONTABIL")
-    if _conta_valida(raw):
-        logger.info(
-            "Conta contabil via fallback item SEDE | material_hrba=%s valor=%s",
+    sede_conta = item.get("CD_CONTA_CONTABIL")
+    if _conta_valida(sede_conta):
+        logger.warning(
+            "Funcao conta NULL no HRBA; ignorando CD_CONTA_CONTABIL SEDE=%s "
+            "(evita ORA-02291) | material_hrba=%s",
+            sede_conta,
             cd_material_hrba,
-            raw,
         )
-        return raw
-    # GA0016 tambem seguia o INSERT mesmo com null.
+    # GA0016: INSERT com null quando a funcao nao retorna conta.
     return None
 
 

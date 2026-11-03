@@ -11,9 +11,26 @@ interface NotaDetalheModalProps {
   onAtualizado?: () => void;
 }
 
-function DeparaBadge({ depara }: { depara?: DeparaStatus | null }) {
+function DeparaBadge({
+  depara,
+  canalHrba = false,
+}: {
+  depara?: DeparaStatus | null;
+  canalHrba?: boolean;
+}) {
   if (!depara) {
     return <span className="depara-badge depara-pendente">—</span>;
+  }
+
+  if (canalHrba && depara.status === "ok") {
+    return (
+      <span
+        className="depara-badge depara-ok"
+        title={depara.mensagem ?? "De-para no Tasy HRBA (cd_sistema_ant), nao no PR"}
+      >
+        Tasy HRBA
+      </span>
+    );
   }
 
   if (depara.status === "ok") {
@@ -225,8 +242,9 @@ export default function NotaDetalheModal({
             </div>
           ) : detalhe.depara_resumo && detalhe.depara_resumo.total > 0 ? (
             <div className="alert-success depara-resumo-ok">
-              De-para validado: todos os {detalhe.depara_resumo.total} item(ns) possuem vínculo no
-              PR.
+              {isHrba
+                ? `Canal HRBA: de-para de material e no Tasy (cd_sistema_ant), nao no PR — ${detalhe.depara_resumo.total} item(ns).`
+                : `De-para validado: todos os ${detalhe.depara_resumo.total} item(ns) possuem vínculo no PR.`}
               {detalhe.erro?.toLowerCase().includes("de-para") ? (
                 <p className="depara-resumo-hint">
                   O erro exibido acima é da última tentativa de envio (retry antigo). Pode
@@ -297,7 +315,7 @@ export default function NotaDetalheModal({
                       <tr>
                         <th>Cód. material (Tasy)</th>
                         <th>Descrição</th>
-                        <th>De-para PR</th>
+                        <th>{isHrba ? "De-para" : "De-para PR"}</th>
                         <th>Qtd entrada</th>
                         <th>Valor unit.</th>
                         <th>Valor item</th>
@@ -326,7 +344,7 @@ export default function NotaDetalheModal({
                               {desc || "—"}
                             </td>
                             <td>
-                              <DeparaBadge depara={produto.depara} />
+                              <DeparaBadge depara={produto.depara} canalHrba={isHrba} />
                             </td>
                             <td>{formatNumero(produto.qtdEntrada, 4)}</td>
                             <td>{formatMoeda(produto.cunit)}</td>
