@@ -7,7 +7,7 @@ import httpx
 from sqlalchemy import text
 
 from services.common.estab_config import SessionLocal
-from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
+from services.extractor.competencia import resolve_extraction_date_params
 from services.extractor.extraction_profiles import PROFILES
 from services.extractor.extractor import (
     MockOracleClient,
@@ -122,13 +122,15 @@ def classify_estabelecimento(estabelecimento: str) -> dict[str, Any]:
     profile = PROFILES[estabelecimento]
     oracle = _oracle_client(estabelecimento)
     header_sql = build_header_notes_sql(profile.cd_operacao_nf_in)
+    date_params = resolve_extraction_date_params(profile)
     note_rows = oracle.fetch_all(
         header_sql,
         params={
-            "dt_atualizacao_estoque_min": profile.dt_atualizacao_estoque_min,
-            "dt_emissao_min": profile.dt_emissao_min,
+            "dt_atualizacao_estoque_min": date_params["dt_atualizacao_estoque_min"],
+            "dt_emissao_min": date_params["dt_emissao_min"],
             "cd_estabelecimento": profile.cd_estabelecimento,
-            "competencia_mes_atual": 1 if COMPETENCIA_MES_ATUAL_ONLY else 0,
+            "competencia_mes_atual": date_params["competencia_mes_atual"],
+            "competencia_grace_ate_dia": date_params["competencia_grace_ate_dia"],
         },
     )
 

@@ -85,44 +85,45 @@ def validate_note_row(
             operacoes_liberadas=operacoes,
         )
 
+    from services.extractor.competencia import (
+        emissao_na_competencia_permitida,
+        resolve_extraction_date_params,
+    )
+
+    date_params = resolve_extraction_date_params(profile)
     dt_emissao = _as_date(_g(note_row, "DATANOTA"))
-    dt_emissao_min = date.fromisoformat(profile.dt_emissao_min)
+    dt_emissao_min = date.fromisoformat(date_params["dt_emissao_min"])
     if dt_emissao and dt_emissao < dt_emissao_min:
         return NoteValidationResult(
             valido=False,
             mensagem=(
                 f"Data de emissao anterior ao minimo permitido "
-                f"({profile.dt_emissao_min})."
+                f"({date_params['dt_emissao_min']})."
             ),
             cd_operacao_nf=cd_operacao_int,
             operacoes_liberadas=operacoes,
         )
 
     dt_estoque = _as_date(_g(note_row, "DT_ATUALIZACAO_ESTOQUE"))
-    dt_estoque_min = date.fromisoformat(profile.dt_atualizacao_estoque_min)
+    dt_estoque_min = date.fromisoformat(date_params["dt_atualizacao_estoque_min"])
     if dt_estoque and dt_estoque < dt_estoque_min:
         return NoteValidationResult(
             valido=False,
             mensagem=(
                 f"Data de atualizacao de estoque anterior ao minimo permitido "
-                f"({profile.dt_atualizacao_estoque_min})."
+                f"({date_params['dt_atualizacao_estoque_min']})."
             ),
             cd_operacao_nf=cd_operacao_int,
             operacoes_liberadas=operacoes,
         )
 
-    # Competencia do mes corrente (dt_emissao / Data NF).
-    from services.extractor.config import COMPETENCIA_MES_ATUAL_ONLY
-
-    if COMPETENCIA_MES_ATUAL_ONLY and dt_emissao:
-        hoje = date.today()
-        if dt_emissao.year != hoje.year or dt_emissao.month != hoje.month:
+    # Competencia do mes (HRBA: mes anterior ate o dia de corte).
+    if dt_emissao:
+        ok_comp, msg_comp = emissao_na_competencia_permitida(dt_emissao, profile)
+        if not ok_comp:
             return NoteValidationResult(
                 valido=False,
-                mensagem=(
-                    f"Nota fora da competencia do mes atual "
-                    f"(emissao {dt_emissao.isoformat()}; esperado {hoje.year:04d}-{hoje.month:02d})."
-                ),
+                mensagem=msg_comp,
                 cd_operacao_nf=cd_operacao_int,
                 operacoes_liberadas=operacoes,
             )

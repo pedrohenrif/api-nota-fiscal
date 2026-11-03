@@ -25,6 +25,13 @@ WHERE
     AND (
         :competencia_mes_atual = 0
         OR TO_CHAR(nf.dt_emissao, 'YYYY-MM') = TO_CHAR(SYSDATE, 'YYYY-MM')
+        OR (
+            :competencia_grace_ate_dia > 0
+            AND EXTRACT(DAY FROM SYSDATE) <= :competencia_grace_ate_dia
+            AND TO_CHAR(nf.dt_emissao, 'YYYY-MM') = TO_CHAR(
+                ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1), 'YYYY-MM'
+            )
+        )
     )
     AND nf.cd_estabelecimento = :cd_estabelecimento
     AND nf.ie_situacao NOT IN (2, 3)
