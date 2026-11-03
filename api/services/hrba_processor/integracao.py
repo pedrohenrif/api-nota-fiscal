@@ -101,17 +101,16 @@ def _inserir_itens(
             continue
 
         un_compra, un_estoque = buscar_unidades_medidas(hrba, cd_material_hrba)
+        # Mesmo fluxo do GA0016: usa o retorno da funcao (ou SEDE) e deixa o INSERT/Oracle decidir.
         conta = resolver_conta_contabil(hrba, cd_material_hrba, item)
         if conta is None:
-            ok = False
-            motivo = (
-                f"item {item.get('NR_ITEM_NF')}: conta contabil ausente/invalida no HRBA "
-                f"(material_hrba={cd_material_hrba}, material_sede={material_sede}). "
-                "Cadastre conta em material_estab / obter_conta_contabil_material no estab HRBA."
+            logger.warning(
+                "[INSERT_NFI] item=%s sem conta contabil (material_hrba=%s sede=%s); "
+                "seguindo INSERT como no GA0016",
+                item.get("NR_ITEM_NF"),
+                cd_material_hrba,
+                material_sede,
             )
-            motivos.append(motivo)
-            logger.error("[INSERT_NFI] %s | %s", motivo, _ident(nota, nr_seq_hrba))
-            continue
         centro = definir_centro_custo(cd_estoque_hrba, consignado)
         cd_conta_item = item.get("CD_CONTA")
         nr_atendimento = nr_atendimento_do_item(item)
@@ -439,11 +438,11 @@ def integrar_nota(
         if not itens_ok:
             hrba.rollback()
             detalhe = "; ".join(motivos_itens[:5]) if motivos_itens else "motivo desconhecido"
-            erro_tipo = (
-                "conta_contabil"
-                if "conta contabil" in detalhe.lower()
-                else "sem_depara"
-            )
+            detalhe_l = detalhe.lower()
+            if "conta contabil" in detalhe_l or "concont" in detalhe_l or "02291" in detalhe_l:
+                erro_tipo = "conta_contabil"
+            else:
+                erro_tipo = "sem_depara"
             return {
                 "ok": False,
                 "nr_seq_hrba": nr_seq_hrba,

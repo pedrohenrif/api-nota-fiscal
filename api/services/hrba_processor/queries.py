@@ -258,32 +258,11 @@ FROM tasy.material
 WHERE CD_MATERIAL = :CD_MATERIAL
 """
 
+# Igual GA0016: funcao Tasy no cadastro do material HRBA (estab 1).
 SELECT_CONTA_CONTABIL = """
-SELECT obter_conta_contabil_material(:CD_ESTABELECIMENTO, :CD_MATERIAL) AS CD_CONTA_CONTABIL
-FROM dual
-"""
-
-SELECT_CONTA_CONTABIL_COM_ESTOQUE = """
-SELECT obter_conta_contabil_material(
-    :CD_ESTABELECIMENTO, :CD_MATERIAL, :CD_LOCAL_ESTOQUE
-) AS CD_CONTA_CONTABIL
-FROM dual
-"""
-
-# Em varias bases a conta fica em material_estab (nao na tabela material).
-SELECT_CONTA_CONTABIL_MATERIAL_ESTAB = """
-SELECT cd_conta_contabil AS CD_CONTA_CONTABIL
-FROM tasy.material_estab
-WHERE cd_estabelecimento = :CD_ESTABELECIMENTO
-  AND cd_material = :CD_MATERIAL
-  AND cd_conta_contabil IS NOT NULL
-"""
-
-# Valida FK NOTFIIT_CONCONT_FK antes do INSERT do item.
-SELECT_CONTA_CONTABIL_EXISTE = """
-SELECT cd_conta_contabil
-FROM tasy.conta_contabil
-WHERE cd_conta_contabil = :CD_CONTA_CONTABIL
+SELECT obter_conta_contabil_material(1, cd_material) AS CD_CONTA_CONTABIL
+FROM MATERIAL
+WHERE CD_MATERIAL = :CD_MATERIAL
 """
 
 SELECT_ITEM_CONTA_POS_INSERT = """
