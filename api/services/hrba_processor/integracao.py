@@ -30,40 +30,69 @@ def _ident(nota: dict[str, Any], nr_seq_hrba: Any = None) -> str:
     return base
 
 
+def _cgc_digits(value: Any) -> str:
+    digits = "".join(ch for ch in str(value or "") if ch.isdigit())
+    return digits.zfill(14) if digits else ""
+
+
+def _lookup_params(nota: dict[str, Any]) -> dict[str, Any]:
+    cgc = _cgc_digits(nota.get("FORNECEDOR")) or str(nota.get("FORNECEDOR") or "")
+    return {
+        "NR_NOTA_FISCAL": str(nota.get("NF") or "").strip(),
+        "CD_CGC_EMITENTE": cgc,
+        "CD_ESTABELECIMENTO": CD_ESTABELECIMENTO_HRBA,
+        "CD_SERIE_NF": str(nota.get("SERIE") or "").strip(),
+        "NR_SEQUENCIA_NF": nota.get("NR_SEQUENCIA_NF"),
+    }
+
+
 def _lookup_nr_seq_hrba(hrba: OracleSession, nota: dict[str, Any]) -> Any:
-    return hrba.fetch_value(
-        queries.SELECT_NR_SEQ_HRBA,
+    """Localiza NF ja gravada no HRBA (idempotente apos falha na consistir)."""
+    params = _lookup_params(nota)
+    encontrado = hrba.fetch_value(queries.SELECT_NR_SEQ_HRBA, params)
+    if encontrado is not None:
+        return encontrado
+    fallback = hrba.fetch_value(
+        queries.SELECT_NR_SEQ_HRBA_FALLBACK,
         {
-            "NR_NOTA_FISCAL": nota.get("NF"),
-            "CD_CGC_EMITENTE": nota.get("FORNECEDOR"),
-            "CD_ESTABELECIMENTO": CD_ESTABELECIMENTO_HRBA,
-            "CD_SERIE_NF": nota.get("SERIE"),
-            "NR_SEQUENCIA_NF": nota.get("NR_SEQUENCIA_NF"),
+            "NR_NOTA_FISCAL": params["NR_NOTA_FISCAL"],
+            "CD_CGC_EMITENTE": params["CD_CGC_EMITENTE"],
+            "CD_ESTABELECIMENTO": params["CD_ESTABELECIMENTO"],
+            "CD_SERIE_NF": params["CD_SERIE_NF"],
         },
     )
+    if fallback is not None:
+        logger.warning(
+            "[INTEGRACAO] NF encontrada via fallback (sem NR_SEQUENCIA_NF) | %s seq_hrba=%s",
+            _ident(nota),
+            fallback,
+        )
+    return fallback
 
 
 def _inserir_nota_fiscal(hrba: OracleSession, nota: dict[str, Any]) -> bool:
+    fornecedor = _cgc_digits(nota.get("FORNECEDOR")) or nota.get("FORNECEDOR")
+    cnpj = _cgc_digits(nota.get("CNPJ")) or nota.get("CNPJ") or fornecedor
     try:
         hrba.execute(
             queries.INSERT_NF,
             {
-                "FORNECEDOR": nota.get("FORNECEDOR"),
+                "FORNECEDOR": fornecedor,
                 "DATANOTA": nota.get("DATANOTA"),
                 "ATUALIZACAO": nota.get("ATUALIZACAO"),
-                "SERIE": nota.get("SERIE"),
+                "SERIE": str(nota.get("SERIE") or "").strip(),
                 "DATAREC": nota.get("DATAREC"),
                 "DESCONTO": nota.get("DESCONTO") or 0,
                 "IPI": nota.get("IPI") or 0,
                 "FRETE": nota.get("FRETE") or 0,
-                "NF": nota.get("NF"),
+                "NF": str(nota.get("NF") or "").strip(),
                 "ESTABELECIMENTO": CD_ESTABELECIMENTO_HRBA,
                 "VALOR_TOTAL_NOTA": nota.get("VALOR_TOTAL_NOTA"),
                 "PESO_LIQUIDO": nota.get("PESO_LIQUIDO"),
                 "QT_PESO_BRUTO": nota.get("QT_PESO_BRUTO"),
                 "USUARIO": USUARIO_INTEGRACAO,
                 "NR_SEQUENCIA_NF": nota.get("NR_SEQUENCIA_NF"),
-                "CNPJ": nota.get("CNPJ"),
+                "CNPJ": cnpj,
                 "OPERACAO": nota.get("OPERACAO"),
                 "ACAO_NF": nota.get("ACAO_NF"),
                 "IE_EMISSAO_NF": nota.get("EMISSAO_NF"),
@@ -405,14 +434,35 @@ def integrar_nota(
     sede: OracleSession,
     hrba: OracleSession,
     nota: dict[str, Any],
+    nr_seq_hrba_conhecido: Any = None,
 ) -> dict[str, Any]:
     """
     Integra uma nota SEDE -> HRBA.
     Retorno: {ok, nr_seq_hrba, ja_existia, mensagem, erro_tipo}
+
+    Se a nota ja foi inserida no HRBA (falha na consistir/atualizar) e o Reemitir
+    rodar de novo, NAO reinsere — so reexecuta as procedures na seq existente.
     """
     existente = _lookup_nr_seq_hrba(hrba, nota)
+    if existente is None and nr_seq_hrba_conhecido is not None:
+        # pr_id gravado na tentativa anterior (painel) — evita duplicar se o lookup falhar.
+        try:
+            conhecido = int(nr_seq_hrba_conhecido)
+        except (TypeError, ValueError):
+            conhecido = None
+        if conhecido is not None:
+            logger.warning(
+                "[INTEGRACAO] usando nr_seq_hrba conhecido do painel | %s seq_hrba=%s",
+                _ident(nota),
+                conhecido,
+            )
+            existente = conhecido
+
     if existente:
-        logger.info("[INTEGRACAO] NF ja existe no HRBA | %s", _ident(nota, existente))
+        logger.info(
+            "[INTEGRACAO] NF ja existe no HRBA — sem novo INSERT | %s",
+            _ident(nota, existente),
+        )
         nr_seq_hrba = existente
         ja_existia = True
     else:
@@ -482,6 +532,7 @@ def integrar_nota(
             "(obter_conta_contabil_material), nao so o campo do item. "
             "Confira no HRBA: SELECT obter_conta_contabil_material(1, CD_MATERIAL) FROM dual"
         )
+    msg = f"{msg} | seq_hrba={nr_seq_hrba} (reemitir nao deve duplicar; so reexecuta procedures)"
     return {
         "ok": False,
         "nr_seq_hrba": nr_seq_hrba,

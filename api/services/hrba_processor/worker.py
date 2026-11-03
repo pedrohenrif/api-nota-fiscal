@@ -15,6 +15,7 @@ from services.hrba_processor.integracao import integrar_nota
 from services.hrba_processor.loader import carregar_nota_sede
 from services.hrba_processor.oracle_session import OracleSession
 from services.processor.db import SessionLocal
+from services.processor.models import NotaProcessamento
 from services.processor.repository import upsert_processing_status
 
 logger = logging.getLogger(__name__)
@@ -130,7 +131,22 @@ def process_hrba_payload(payload: dict[str, Any]) -> str:
             )
             return "dead_letter"
 
-        resultado = integrar_nota(sede, hrba, nota)
+        # Se tentativa anterior ja gravou seq HRBA (pr_id), reusa — nao duplica INSERT.
+        seq_hrba_conhecido = None
+        prev = (
+            db.query(NotaProcessamento)
+            .filter(
+                NotaProcessamento.estabelecimento == ESTABELECIMENTO_NOME,
+                NotaProcessamento.nr_sequencia == str(nr_sequencia),
+            )
+            .first()
+        )
+        if prev and prev.pr_id is not None:
+            seq_hrba_conhecido = prev.pr_id
+
+        resultado = integrar_nota(
+            sede, hrba, nota, nr_seq_hrba_conhecido=seq_hrba_conhecido
+        )
         nf = str(nota.get("NF") or meta["nf"] or nr_sequencia)
         fornecedor = str(nota.get("FORNECEDOR") or meta["fornecedor"] or "")
         data_nf = nota.get("DATANOTA") or meta["data_nf"]
