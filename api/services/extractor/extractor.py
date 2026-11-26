@@ -215,20 +215,25 @@ def _build_note_payload(
         )
 
     valor_total = _to_float(_g(note_row, "VALOR_TOTAL_NOTA"))
-    # Tributacao: Tasy ja desconta no total da nota. Nao enviamos tributos ao PR;
-    # so garantimos soma(itens) = valorTotal para evitar "valor divergente".
-    if products and _note_has_tributacao(db_client, nr_sequencia):
+    # PR exige soma(itens) = valorTotal. O Tasy pode divergir por tributo, rateio,
+    # desconto etc. — nem sempre cai em nota_fiscal_item_trib. Sempre alinhamos
+    # quando houver divergencia (tributo detectado ou nao).
+    if products:
         soma_antes = _round_money(sum(_to_float(p.get("valor")) for p in products))
-        _alinhar_itens_ao_valor_nota(products, valor_total)
-        soma_depois = _round_money(sum(_to_float(p.get("valor")) for p in products))
-        if abs(soma_antes - soma_depois) >= 0.01:
+        alvo = _round_money(valor_total)
+        if abs(soma_antes - alvo) >= 0.01:
+            tem_trib = _note_has_tributacao(db_client, nr_sequencia)
+            _alinhar_itens_ao_valor_nota(products, valor_total)
+            soma_depois = _round_money(sum(_to_float(p.get("valor")) for p in products))
             logger.info(
-                "Nota %s (seq %s) com tributacao: itens %.2f -> %.2f (valorTotal %.2f)",
+                "Nota %s (seq %s) alinhando itens ao valorTotal: %.2f -> %.2f "
+                "(valorTotal %.2f, trib_tabela=%s)",
                 _to_str(_g(note_row, "NF")),
                 _to_str(nr_sequencia),
                 soma_antes,
                 soma_depois,
-                _round_money(valor_total),
+                alvo,
+                tem_trib,
             )
 
     return NotaFiscalPRPayload(
